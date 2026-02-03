@@ -1481,11 +1481,9 @@ export default async function AirlineRoutePage({ params }: PageProps) {
               origin,
               terminal,
               phone,
-              originAirport?.address ? {
+              originAirport ? {
                 addressLocality: originAirport.city || originDisplay,
-                addressRegion: originAirport.state,
                 addressCountry: originAirport.country,
-                streetAddress: originAirport.address,
               } : undefined,
               airline.website
             );
@@ -1509,11 +1507,9 @@ export default async function AirlineRoutePage({ params }: PageProps) {
               destination,
               terminal,
               phone,
-              destinationAirport?.address ? {
+              destinationAirport ? {
                 addressLocality: destinationAirport.city || destinationDisplay,
-                addressRegion: destinationAirport.state,
                 addressCountry: destinationAirport.country,
-                streetAddress: destinationAirport.address,
               } : undefined,
               airline.website
             );
@@ -1593,9 +1589,9 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                     }
                     return null;
                   })()}
-                  {originAirport?.address && (
+                  {originAirport?.city && (
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      <strong>Address:</strong> {routeTerminalInfo?.origin?.departure_terminal || originTerminalPhones.find(tp => tp.departure_terminal)?.departure_terminal || 'Terminal'}, {originAirport.address}
+                      <strong>Location:</strong> {routeTerminalInfo?.origin?.departure_terminal || originTerminalPhones.find(tp => tp.departure_terminal)?.departure_terminal || 'Terminal'}, {originAirport.city}{originAirport.country ? `, ${originAirport.country}` : ''}
                     </Typography>
                   )}
                   {routeTerminalInfo?.origin?.counter_office && (
@@ -1636,9 +1632,9 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                     }
                     return null;
                   })()}
-                  {destinationAirport?.address && (
+                  {destinationAirport?.city && (
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      <strong>Address:</strong> {routeTerminalInfo?.destination?.arrival_terminal || destinationTerminalPhones.find(tp => tp.arrival_terminal)?.arrival_terminal || 'Terminal'}, {destinationAirport.address}
+                      <strong>Location:</strong> {routeTerminalInfo?.destination?.arrival_terminal || destinationTerminalPhones.find(tp => tp.arrival_terminal)?.arrival_terminal || 'Terminal'}, {destinationAirport.city}{destinationAirport.country ? `, ${destinationAirport.country}` : ''}
                     </Typography>
                   )}
                   {routeTerminalInfo?.destination?.counter_office && (

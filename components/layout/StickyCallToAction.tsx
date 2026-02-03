@@ -77,7 +77,6 @@ export default function StickyCallToAction() {
         p: { xs: 1.5, sm: 2 },
         gap: { xs: 1, sm: 2 },
         borderTop: '3px solid #1b5e20',
-        position: 'relative',
         overflow: 'hidden',
         '&::before': {
           content: '""',
