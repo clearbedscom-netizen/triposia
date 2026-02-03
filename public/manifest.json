@@ -1,11 +1,12 @@
 {
   "name": "Triposia - Flight Information & Airport Data",
   "short_name": "Triposia",
-  "description": "Comprehensive flight schedules, airport information, and airline data",
+  "description": "Comprehensive flight schedules, airport information, and airline data for travelers worldwide",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563EB",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/favicon-for-public/web-app-manifest-192x192.png",
@@ -19,5 +20,8 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["travel", "navigation", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr"
 }

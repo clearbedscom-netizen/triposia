@@ -1,4 +1,4 @@
-const IMAGEKIT_BASE_URL = 'https://ik.imagekit.io/clearmystay/triposia';
+const IMAGEKIT_BASE_URL = 'https://ik.imagekit.io/clearmystay/askfares';
 
 /**
  * Get airline logo URL from ImageKit

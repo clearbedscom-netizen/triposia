@@ -11,7 +11,7 @@ interface CdnImageProps {
 }
 
 export default function CdnImage({ src, alt, width, height, className, priority = false }: CdnImageProps) {
-  const imageUrl = src.startsWith('http') ? src : `https://ik.imagekit.io/clearmystay/triposia${src}`;
+  const imageUrl = src.startsWith('http') ? src : `https://ik.imagekit.io/clearmystay/askfares${src}`;
   
   const widthNum = typeof width === 'number' ? width : typeof width === 'string' ? parseInt(width) : 800;
   const heightNum = typeof height === 'number' ? height : typeof height === 'string' ? parseInt(height) : 600;

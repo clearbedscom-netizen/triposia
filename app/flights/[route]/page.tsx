@@ -668,11 +668,15 @@ export default async function FlightRoutePage({ params }: PageProps) {
   // Extract price data
   const priceMonthData = deepRoute?.flight_data?.price_month_data;
   const monthlyPrices = priceMonthData 
-    ? Object.entries(priceMonthData).map(([month, price]: [string, any]) => ({
-        month,
-        monthShort: month.substring(0, 3),
-        price: typeof price === 'number' ? price : parseInt(String(price).replace(/[^0-9]/g, ''), 10) || 0,
-      }))
+    ? Object.entries(priceMonthData).map(([month, price]: [string, any]) => {
+        // Replace 2023 with 2025 in month names
+        const updatedMonth = month.replace(/2023/g, '2025');
+        return {
+          month: updatedMonth,
+          monthShort: updatedMonth.substring(0, 3),
+          price: typeof price === 'number' ? price : parseInt(String(price).replace(/[^0-9]/g, ''), 10) || 0,
+        };
+      })
     : [];
   const averagePrice = monthlyPrices.length > 0
     ? Math.round(monthlyPrices.reduce((sum, p) => sum + p.price, 0) / monthlyPrices.length)
@@ -783,11 +787,11 @@ export default async function FlightRoutePage({ params }: PageProps) {
       </Box>
 
       {/* 3. Flight Calendar & Schedule */}
-      {flights.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
-            Flight Schedule
-          </Typography>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
+          Flight Schedule
+        </Typography>
+        {flights.length > 0 ? (
           <FlightCalendarWrapper 
             flights={flights} 
             origin={origin}
@@ -795,8 +799,14 @@ export default async function FlightRoutePage({ params }: PageProps) {
             originDisplay={originDisplay}
             destinationDisplay={destinationDisplay}
           />
-        </Box>
-      )}
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Flight schedule data is being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* 5. Airlines Section */}
       {operatingAirlines.length > 0 && (
@@ -875,45 +885,89 @@ export default async function FlightRoutePage({ params }: PageProps) {
       })()}
 
       {/* 5. Enhanced Weather Section (from weather collection) */}
-      {destinationWeather && (
-        <WeatherSection weather={destinationWeather} airportName={destinationDisplay} />
-      )}
-
-      {/* Legacy Weather Charts (fallback if weather collection doesn't have data) */}
-      {!destinationWeather && destinationData && (
-        <WeatherCharts
-          rainfall={destinationData.rainfall}
-          temperature={destinationData.temperature}
-          destinationName={destinationDisplay}
-        />
-      )}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+          Weather at {destinationDisplay}
+        </Typography>
+        {destinationWeather ? (
+          <WeatherSection weather={destinationWeather} airportName={destinationDisplay} />
+        ) : destinationData && (destinationData.rainfall || destinationData.temperature) ? (
+          <WeatherCharts
+            rainfall={destinationData.rainfall}
+            temperature={destinationData.temperature}
+            destinationName={destinationDisplay}
+          />
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Weather data for {destinationDisplay} is being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* 6. Booking Insights */}
-      {destinationBookingInsights && (
-        <BookingInsightsSection insights={destinationBookingInsights} airportName={destinationDisplay} />
-      )}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+          Booking Insights
+        </Typography>
+        {destinationBookingInsights ? (
+          <BookingInsightsSection insights={destinationBookingInsights} airportName={destinationDisplay} />
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Booking insights for this route are being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* 7. Price Trends */}
-      {destinationPriceTrends && (
-        <PriceTrendsSection trends={destinationPriceTrends} airportName={destinationDisplay} />
-      )}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+          Price Trends
+        </Typography>
+        {destinationPriceTrends ? (
+          <PriceTrendsSection trends={destinationPriceTrends} airportName={destinationDisplay} />
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Price trend data for this route is being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* 8. Travel Planning */}
-      {destinationData && (
-        <TravelPlanning
-          cheapestDay={destinationData.cheapest_day}
-          cheapestMonth={destinationData.cheapest_month || cheapestMonth}
-          averageFare={destinationData.average_fare}
-          rainfall={destinationData.rainfall}
-          temperature={destinationData.temperature}
-          destinationName={destinationDisplay}
-          originName={originDisplay}
-        />
-      )}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+          Travel Planning
+        </Typography>
+        {destinationData && (destinationData.cheapest_day || destinationData.cheapest_month || destinationData.average_fare || destinationData.rainfall || destinationData.temperature) ? (
+          <TravelPlanning
+            cheapestDay={destinationData.cheapest_day}
+            cheapestMonth={destinationData.cheapest_month || cheapestMonth}
+            averageFare={destinationData.average_fare}
+            rainfall={destinationData.rainfall}
+            temperature={destinationData.temperature}
+            destinationName={destinationDisplay}
+            originName={originDisplay}
+          />
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Travel planning information for this route is being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* 7. Price Statistics */}
-      {monthlyPrices.length > 0 && (
-        <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+          Flight Price Statistics
+        </Typography>
+        {monthlyPrices.length > 0 ? (
           <PriceStatistics
             averagePrice={averagePrice}
             monthlyPrices={monthlyPrices}
@@ -925,8 +979,14 @@ export default async function FlightRoutePage({ params }: PageProps) {
             originDisplay={originDisplay}
             destinationDisplay={destinationDisplay}
           />
-        </Box>
-      )}
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Price data for this route is being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* 7. POI Section (from apois collection) */}
       {apois.length > 0 && (

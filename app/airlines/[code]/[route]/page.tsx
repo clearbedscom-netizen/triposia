@@ -1346,11 +1346,15 @@ export default async function AirlineRoutePage({ params }: PageProps) {
   // Extract price data (SAME as /flights/del-bom)
   const priceMonthData = deepRoute?.flight_data?.price_month_data;
   const monthlyPrices = priceMonthData 
-    ? Object.entries(priceMonthData).map(([month, price]: [string, any]) => ({
-        month,
-        monthShort: month.substring(0, 3),
-        price: typeof price === 'number' ? price : parseInt(String(price).replace(/[^0-9]/g, ''), 10) || 0,
-      }))
+    ? Object.entries(priceMonthData).map(([month, price]: [string, any]) => {
+        // Replace 2023 with 2025 in month names
+        const updatedMonth = month.replace(/2023/g, '2025');
+        return {
+          month: updatedMonth,
+          monthShort: updatedMonth.substring(0, 3),
+          price: typeof price === 'number' ? price : parseInt(String(price).replace(/[^0-9]/g, ''), 10) || 0,
+        };
+      })
     : [];
   const averagePrice = monthlyPrices.length > 0
     ? Math.round(monthlyPrices.reduce((sum, p) => sum + p.price, 0) / monthlyPrices.length)

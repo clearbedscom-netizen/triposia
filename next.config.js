@@ -6,7 +6,7 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'ik.imagekit.io',
-        pathname: '/clearmystay/triposia/**',
+        pathname: '/clearmystay/askfares/**',
       },
     ],
     formats: ['image/avif', 'image/webp'],

@@ -378,6 +378,7 @@ export default function robots(): MetadataRoute.Robots {
       `${baseUrl}/sitemap-airline-airports-4.xml`,
       `${baseUrl}/sitemap-airline-airports-5.xml`,
     ],
+    // Note: llms.txt is available at /llms.txt for AI crawlers
   };
 }
 
