@@ -669,8 +669,11 @@ export default async function FlightRoutePage({ params }: PageProps) {
   const priceMonthData = deepRoute?.flight_data?.price_month_data;
   const monthlyPrices = priceMonthData 
     ? Object.entries(priceMonthData).map(([month, price]: [string, any]) => {
-        // Replace 2023 with 2025 in month names
-        const updatedMonth = month.replace(/2023/g, '2025');
+        // Replace any year (2020-2024) with 2025 in month names
+        let updatedMonth = month.replace(/202[0-4]/g, '2025');
+        // Also handle any other year format that might exist
+        updatedMonth = updatedMonth.replace(/\b2023\b/g, '2025');
+        updatedMonth = updatedMonth.replace(/\b2024\b/g, '2025');
         return {
           month: updatedMonth,
           monthShort: updatedMonth.substring(0, 3),

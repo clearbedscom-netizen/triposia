@@ -604,84 +604,120 @@ export async function generateAirlineRouteFAQs(
     });
   }
 
-  // Terminal information for departure
-  if (originAirport?.terminals && originAirport.terminals.length > 0) {
-    const departureTerminal = getTerminalForAirline(originAirport.terminals, airline.iata || airline.code);
-    if (departureTerminal) {
-      const terminalPhone = originTerminalPhones?.find(tp => 
-        tp.terminal_name === departureTerminal && 
-        (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || !tp.airline_code)
-      );
-      
-      let terminalAnswer = `${airline.name} flights from ${originDisplay} depart from Terminal ${departureTerminal}.`;
-      if (terminalPhone?.phone_number) {
-        terminalAnswer += ` Terminal ${departureTerminal} phone: ${terminalPhone.phone_number}.`;
-      }
-      if (terminalPhone?.help_desk_phone) {
-        terminalAnswer += ` Help desk: ${terminalPhone.help_desk_phone}${terminalPhone.help_desk_hours ? ` (${terminalPhone.help_desk_hours})` : ''}.`;
-      }
-      if (terminalPhone?.terminal_location) {
-        terminalAnswer += ` Terminal location: ${terminalPhone.terminal_location}.`;
-      }
-      
-      faqs.push({
-        question: `Which terminal does ${airline.name} use at ${originDisplay}?`,
-        answer: terminalAnswer,
-      });
+  // Terminal information for departure (using new schema with fallback)
+  const originTerminalData = originTerminalPhones?.find(tp => 
+    (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+     tp.airline_iata?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+     !tp.airline_code && !tp.airline_iata)
+  );
+  
+  const departureTerminal = originTerminalData?.departure_terminal || 
+    (originAirport?.terminals && originAirport.terminals.length > 0 
+      ? getTerminalForAirline(originAirport.terminals, airline.iata || airline.code)
+      : null) ||
+    originTerminalData?.terminal_name;
+  
+  if (departureTerminal) {
+    // Phone fallback: terminal_phone -> phone_number -> airlines_phone -> airport_phone
+    const phone = originTerminalData?.terminal_phone || 
+                  originTerminalData?.phone_number || 
+                  originTerminalData?.airlines_phone || 
+                  originTerminalData?.airport_phone;
+    
+    let terminalAnswer = `${airline.name} flights from ${originDisplay} depart from Terminal ${departureTerminal}.`;
+    if (phone) {
+      terminalAnswer += ` Terminal ${departureTerminal} phone: ${phone}.`;
     }
+    if (originTerminalData?.help_desk_phone) {
+      terminalAnswer += ` Help desk: ${originTerminalData.help_desk_phone}${originTerminalData.help_desk_hours ? ` (${originTerminalData.help_desk_hours})` : ''}.`;
+    }
+    if (originTerminalData?.terminal_location) {
+      terminalAnswer += ` Terminal location: ${originTerminalData.terminal_location}.`;
+    }
+    if (originTerminalData?.counter_office) {
+      terminalAnswer += ` Counter office: ${originTerminalData.counter_office}.`;
+    }
+    
+    faqs.push({
+      question: `Which terminal does ${airline.name} use at ${originDisplay}?`,
+      answer: terminalAnswer,
+    });
   }
 
-  // Departure terminal phone number
+  // Departure terminal phone number (with fallback)
   if (originTerminalPhones && originTerminalPhones.length > 0) {
     const terminalPhone = originTerminalPhones.find(tp => 
-      tp.phone_number && tp.terminal_name &&
-      (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || !tp.airline_code)
+      (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+       tp.airline_iata?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+       !tp.airline_code && !tp.airline_iata) &&
+      (tp.terminal_phone || tp.phone_number || tp.airlines_phone || tp.airport_phone) &&
+      (tp.departure_terminal || tp.terminal_name)
     );
     if (terminalPhone) {
+      const phone = terminalPhone.terminal_phone || terminalPhone.phone_number || terminalPhone.airlines_phone || terminalPhone.airport_phone;
+      const terminal = terminalPhone.departure_terminal || terminalPhone.terminal_name;
       faqs.push({
         question: `What is the ${airline.name} terminal phone number at ${originDisplay}?`,
-        answer: `The ${airline.name} terminal phone number at ${originDisplay} is ${terminalPhone.phone_number}${terminalPhone.terminal_name ? ` (Terminal ${terminalPhone.terminal_name})` : ''}.`,
+        answer: `The ${airline.name} terminal phone number at ${originDisplay} is ${phone}${terminal ? ` (Terminal ${terminal})` : ''}.`,
       });
     }
   }
 
-  // Terminal information for arrival
-  if (destinationAirport?.terminals && destinationAirport.terminals.length > 0) {
-    const arrivalTerminal = getTerminalForAirline(destinationAirport.terminals, airline.iata || airline.code);
-    if (arrivalTerminal) {
-      const terminalPhone = destinationTerminalPhones?.find(tp => 
-        tp.terminal_name === arrivalTerminal && 
-        (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || !tp.airline_code)
-      );
-      
-      let terminalAnswer = `${airline.name} flights to ${destinationDisplay} arrive at Terminal ${arrivalTerminal}.`;
-      if (terminalPhone?.phone_number) {
-        terminalAnswer += ` Terminal ${arrivalTerminal} phone: ${terminalPhone.phone_number}.`;
-      }
-      if (terminalPhone?.help_desk_phone) {
-        terminalAnswer += ` Help desk: ${terminalPhone.help_desk_phone}${terminalPhone.help_desk_hours ? ` (${terminalPhone.help_desk_hours})` : ''}.`;
-      }
-      if (terminalPhone?.terminal_location) {
-        terminalAnswer += ` Terminal location: ${terminalPhone.terminal_location}.`;
-      }
-      
-      faqs.push({
-        question: `Which terminal does ${airline.name} use at ${destinationDisplay}?`,
-        answer: terminalAnswer,
-      });
+  // Terminal information for arrival (using new schema with fallback)
+  const destTerminalData = destinationTerminalPhones?.find(tp => 
+    (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+     tp.airline_iata?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+     !tp.airline_code && !tp.airline_iata)
+  );
+  
+  const arrivalTerminal = destTerminalData?.arrival_terminal || 
+    (destinationAirport?.terminals && destinationAirport.terminals.length > 0 
+      ? getTerminalForAirline(destinationAirport.terminals, airline.iata || airline.code)
+      : null) ||
+    destTerminalData?.terminal_name;
+  
+  if (arrivalTerminal) {
+    // Phone fallback: terminal_phone -> phone_number -> airlines_phone -> airport_phone
+    const phone = destTerminalData?.terminal_phone || 
+                  destTerminalData?.phone_number || 
+                  destTerminalData?.airlines_phone || 
+                  destTerminalData?.airport_phone;
+    
+    let terminalAnswer = `${airline.name} flights to ${destinationDisplay} arrive at Terminal ${arrivalTerminal}.`;
+    if (phone) {
+      terminalAnswer += ` Terminal ${arrivalTerminal} phone: ${phone}.`;
     }
+    if (destTerminalData?.help_desk_phone) {
+      terminalAnswer += ` Help desk: ${destTerminalData.help_desk_phone}${destTerminalData.help_desk_hours ? ` (${destTerminalData.help_desk_hours})` : ''}.`;
+    }
+    if (destTerminalData?.terminal_location) {
+      terminalAnswer += ` Terminal location: ${destTerminalData.terminal_location}.`;
+    }
+    if (destTerminalData?.counter_office) {
+      terminalAnswer += ` Counter office: ${destTerminalData.counter_office}.`;
+    }
+    
+    faqs.push({
+      question: `Which terminal does ${airline.name} use at ${destinationDisplay}?`,
+      answer: terminalAnswer,
+    });
   }
 
-  // Arrival terminal phone number
+  // Arrival terminal phone number (with fallback)
   if (destinationTerminalPhones && destinationTerminalPhones.length > 0) {
     const terminalPhone = destinationTerminalPhones.find(tp => 
-      tp.phone_number && tp.terminal_name &&
-      (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || !tp.airline_code)
+      (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+       tp.airline_iata?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || 
+       !tp.airline_code && !tp.airline_iata) &&
+      (tp.terminal_phone || tp.phone_number || tp.airlines_phone || tp.airport_phone) &&
+      (tp.arrival_terminal || tp.terminal_name)
     );
     if (terminalPhone) {
+      const phone = terminalPhone.terminal_phone || terminalPhone.phone_number || terminalPhone.airlines_phone || terminalPhone.airport_phone;
+      const terminal = terminalPhone.arrival_terminal || terminalPhone.terminal_name;
       faqs.push({
         question: `What is the ${airline.name} terminal phone number at ${destinationDisplay}?`,
-        answer: `The ${airline.name} terminal phone number at ${destinationDisplay} is ${terminalPhone.phone_number}${terminalPhone.terminal_name ? ` (Terminal ${terminalPhone.terminal_name})` : ''}.`,
+        answer: `The ${airline.name} terminal phone number at ${destinationDisplay} is ${phone}${terminal ? ` (Terminal ${terminal})` : ''}.`,
       });
     }
   }

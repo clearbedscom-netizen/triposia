@@ -1261,7 +1261,7 @@ export interface Poi {
 
 export interface TerminalPhone {
   _id?: ObjectId;
-  airport_iata: string;
+  airport_iata?: string;
   terminal_name?: string;
   airline_code?: string;
   airline_name?: string;
@@ -1269,6 +1269,16 @@ export interface TerminalPhone {
   help_desk_phone?: string;
   help_desk_hours?: string;
   terminal_location?: string;
+  // New schema fields
+  airline_iata?: string;
+  city_iata?: string;
+  departure_terminal?: string;
+  arrival_terminal?: string;
+  terminal_phone?: string;
+  airlines_phone?: string;
+  airport_phone?: string;
+  counter_office?: string;
+  airports_country_code?: string;
 }
 
 export async function getTerminalPhones(
@@ -1278,33 +1288,139 @@ export async function getTerminalPhones(
   const db = await getDatabase();
   const collection = db.collection<any>('terminal_phones');
   
-  // Match by airport_iata and optionally by airline_code
-  // Include both airline-specific terminals and general airport terminals
-  const query: any = { airport_iata: airportIata.toUpperCase() };
+  // Support both old and new schema
+  const query: any = {
+    $or: [
+      { airport_iata: airportIata.toUpperCase() },
+      { city_iata: airportIata.toUpperCase() }
+    ]
+  };
   
   if (airlineCode) {
-    // Use $or to include terminals that match the airline OR general terminals (no airline_code)
-    query.$or = [
-      { airline_code: airlineCode.toUpperCase() },
-      { airline_code: { $exists: false } },
-      { airline_code: null },
-      { airline_code: '' }
-    ];
+    const airlineUpper = airlineCode.toUpperCase();
+    const airlineQuery = {
+      $or: [
+        { airline_code: airlineUpper },
+        { airline_iata: airlineUpper },
+        { airline_code: { $exists: false } },
+        { airline_code: null },
+        { airline_code: '' },
+        { airline_iata: { $exists: false } },
+        { airline_iata: null },
+        { airline_iata: '' }
+      ]
+    };
+    query.$and = [airlineQuery];
   }
   
   const terminals = await collection.find(query).toArray();
   
   return terminals.map((terminal: any) => ({
     _id: terminal._id,
-    airport_iata: terminal.airport_iata,
-    terminal_name: terminal.terminal_name,
-    airline_code: terminal.airline_code,
+    airport_iata: terminal.airport_iata || terminal.city_iata,
+    terminal_name: terminal.terminal_name || terminal.departure_terminal || terminal.arrival_terminal,
+    airline_code: terminal.airline_code || terminal.airline_iata,
     airline_name: terminal.airline_name,
-    phone_number: terminal.phone_number,
+    phone_number: terminal.phone_number || terminal.terminal_phone,
     help_desk_phone: terminal.help_desk_phone,
     help_desk_hours: terminal.help_desk_hours,
     terminal_location: terminal.terminal_location,
+    // New schema fields
+    airline_iata: terminal.airline_iata,
+    city_iata: terminal.city_iata,
+    departure_terminal: terminal.departure_terminal,
+    arrival_terminal: terminal.arrival_terminal,
+    terminal_phone: terminal.terminal_phone,
+    airlines_phone: terminal.airlines_phone,
+    airport_phone: terminal.airport_phone,
+    counter_office: terminal.counter_office,
+    airports_country_code: terminal.airports_country_code,
   }));
+}
+
+/**
+ * Get terminal information for a specific route (origin + destination + airline)
+ */
+export async function getTerminalInfoForRoute(
+  originIata: string,
+  destinationIata: string,
+  airlineCode: string
+): Promise<{
+  origin?: TerminalPhone;
+  destination?: TerminalPhone;
+} | null> {
+  const db = await getDatabase();
+  const collection = db.collection<any>('terminal_phones');
+  const airlineUpper = airlineCode.toUpperCase();
+  
+  // Query for origin terminal (departure)
+  const originTerminal = await collection.findOne({
+    $and: [
+      {
+        $or: [
+          { airport_iata: originIata.toUpperCase() },
+          { city_iata: originIata.toUpperCase() }
+        ]
+      },
+      {
+        $or: [
+          { airline_code: airlineUpper },
+          { airline_iata: airlineUpper }
+        ]
+      }
+    ]
+  });
+  
+  // Query for destination terminal (arrival)
+  const destinationTerminal = await collection.findOne({
+    $and: [
+      {
+        $or: [
+          { airport_iata: destinationIata.toUpperCase() },
+          { city_iata: destinationIata.toUpperCase() }
+        ]
+      },
+      {
+        $or: [
+          { airline_code: airlineUpper },
+          { airline_iata: airlineUpper }
+        ]
+      }
+    ]
+  });
+  
+  if (!originTerminal && !destinationTerminal) {
+    return null;
+  }
+  
+  const mapTerminal = (terminal: any): TerminalPhone | undefined => {
+    if (!terminal) return undefined;
+    return {
+      _id: terminal._id,
+      airport_iata: terminal.airport_iata || terminal.city_iata,
+      terminal_name: terminal.terminal_name || terminal.departure_terminal || terminal.arrival_terminal,
+      airline_code: terminal.airline_code || terminal.airline_iata,
+      airline_name: terminal.airline_name,
+      phone_number: terminal.phone_number || terminal.terminal_phone,
+      help_desk_phone: terminal.help_desk_phone,
+      help_desk_hours: terminal.help_desk_hours,
+      terminal_location: terminal.terminal_location,
+      airline_iata: terminal.airline_iata,
+      city_iata: terminal.city_iata,
+      departure_terminal: terminal.departure_terminal,
+      arrival_terminal: terminal.arrival_terminal,
+      terminal_phone: terminal.terminal_phone,
+      airlines_phone: terminal.airlines_phone,
+      airport_phone: terminal.airport_phone,
+      counter_office: terminal.counter_office,
+      airports_country_code: terminal.airports_country_code,
+    };
+  };
+  
+  return {
+    origin: mapTerminal(originTerminal),
+    destination: mapTerminal(destinationTerminal),
+  };
 }
 
 export async function getPoisByAirport(iata: string, limit: number = 6): Promise<Poi[]> {
@@ -1364,7 +1480,33 @@ export async function getWeatherByAirport(iata: string): Promise<WeatherData | n
   try {
     const db = await getDatabase();
     const collection = db.collection<WeatherData>('weather');
-    const weather = await collection.findOne({ airport_iata: iata.toUpperCase() });
+    const upperIata = iata.toUpperCase();
+    const lowerIata = iata.toLowerCase();
+    
+    // Try multiple field name variations with different cases
+    let weather = await collection.findOne({ airport_iata: upperIata });
+    if (!weather) {
+      weather = await collection.findOne({ airport_iata: lowerIata });
+    }
+    if (!weather) {
+      weather = await collection.findOne({ iata: upperIata });
+    }
+    if (!weather) {
+      weather = await collection.findOne({ iata: lowerIata });
+    }
+    if (!weather) {
+      weather = await collection.findOne({ airport_code: upperIata });
+    }
+    if (!weather) {
+      weather = await collection.findOne({ airport_code: lowerIata });
+    }
+    if (!weather) {
+      weather = await collection.findOne({ iata_code: upperIata });
+    }
+    if (!weather) {
+      weather = await collection.findOne({ iata_code: lowerIata });
+    }
+    
     return weather || null;
   } catch (error) {
     console.error(`Error fetching weather for ${iata}:`, error);
@@ -1386,7 +1528,33 @@ export async function getBookingInsightsByAirport(iata: string): Promise<Booking
   try {
     const db = await getDatabase();
     const collection = db.collection<BookingInsights>('booking_insights');
-    const insights = await collection.findOne({ airport_iata: iata.toUpperCase() });
+    const upperIata = iata.toUpperCase();
+    const lowerIata = iata.toLowerCase();
+    
+    // Try multiple field name variations with different cases
+    let insights = await collection.findOne({ airport_iata: upperIata });
+    if (!insights) {
+      insights = await collection.findOne({ airport_iata: lowerIata });
+    }
+    if (!insights) {
+      insights = await collection.findOne({ iata: upperIata });
+    }
+    if (!insights) {
+      insights = await collection.findOne({ iata: lowerIata });
+    }
+    if (!insights) {
+      insights = await collection.findOne({ airport_code: upperIata });
+    }
+    if (!insights) {
+      insights = await collection.findOne({ airport_code: lowerIata });
+    }
+    if (!insights) {
+      insights = await collection.findOne({ iata_code: upperIata });
+    }
+    if (!insights) {
+      insights = await collection.findOne({ iata_code: lowerIata });
+    }
+    
     return insights || null;
   } catch (error) {
     console.error(`Error fetching booking insights for ${iata}:`, error);
@@ -1407,7 +1575,33 @@ export async function getPriceTrendsByAirport(iata: string): Promise<FlightPrice
   try {
     const db = await getDatabase();
     const collection = db.collection<FlightPriceTrends>('flight_price_trends');
-    const trends = await collection.findOne({ airport_iata: iata.toUpperCase() });
+    const upperIata = iata.toUpperCase();
+    const lowerIata = iata.toLowerCase();
+    
+    // Try multiple field name variations with different cases
+    let trends = await collection.findOne({ airport_iata: upperIata });
+    if (!trends) {
+      trends = await collection.findOne({ airport_iata: lowerIata });
+    }
+    if (!trends) {
+      trends = await collection.findOne({ iata: upperIata });
+    }
+    if (!trends) {
+      trends = await collection.findOne({ iata: lowerIata });
+    }
+    if (!trends) {
+      trends = await collection.findOne({ airport_code: upperIata });
+    }
+    if (!trends) {
+      trends = await collection.findOne({ airport_code: lowerIata });
+    }
+    if (!trends) {
+      trends = await collection.findOne({ iata_code: upperIata });
+    }
+    if (!trends) {
+      trends = await collection.findOne({ iata_code: lowerIata });
+    }
+    
     return trends || null;
   } catch (error) {
     console.error(`Error fetching price trends for ${iata}:`, error);

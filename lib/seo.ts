@@ -347,6 +347,76 @@ export function generateFAQPageSchema(
 }
 
 /**
+ * Generate LocalBusiness schema for airline terminal/contact information
+ */
+export function generateAirlineLocalBusinessSchema(
+  airlineName: string,
+  airlineCode: string,
+  airportName: string,
+  airportIata: string,
+  terminal?: string,
+  phone?: string,
+  address?: {
+    streetAddress?: string;
+    addressLocality?: string;
+    addressRegion?: string;
+    postalCode?: string;
+    addressCountry?: string;
+  },
+  website?: string
+) {
+  const schema: any = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: `${airlineName} - ${airportName}${terminal ? ` Terminal ${terminal}` : ''}`,
+    description: `${airlineName} customer service and terminal information at ${airportName}`,
+  };
+
+  if (phone) {
+    schema.telephone = phone;
+  }
+
+  if (address) {
+    schema.address = {
+      '@type': 'PostalAddress',
+      ...(address.streetAddress && { streetAddress: address.streetAddress }),
+      ...(address.addressLocality && { addressLocality: address.addressLocality }),
+      ...(address.addressRegion && { addressRegion: address.addressRegion }),
+      ...(address.postalCode && { postalCode: address.postalCode }),
+      ...(address.addressCountry && { addressCountry: address.addressCountry }),
+    };
+  } else if (airportName) {
+    // Fallback to airport name as location
+    schema.address = {
+      '@type': 'PostalAddress',
+      addressLocality: airportName,
+    };
+  }
+
+  if (terminal) {
+    schema.location = {
+      '@type': 'Place',
+      name: `${airlineName} Terminal ${terminal}`,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: airportName,
+      },
+    };
+  }
+
+  if (website) {
+    schema.url = website;
+  }
+
+  schema.areaServed = {
+    '@type': 'City',
+    name: airportName,
+  };
+
+  return schema;
+}
+
+/**
  * Generate flight listing schema for airport departures
  */
 export function generateAirportDeparturesListingSchema(

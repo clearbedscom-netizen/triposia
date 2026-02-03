@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { Container, Typography, Box, Grid, Paper, Divider, Link as MuiLink } from '@mui/material';
-import { getAirline, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
-import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, parseRouteSlug } from '@/lib/seo';
+import { getAirline, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getTerminalInfoForRoute, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
+import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, generateAirlineLocalBusinessSchema, parseRouteSlug } from '@/lib/seo';
 import { 
   extractRouteMetadata, 
   getBusiestHours, 
@@ -657,11 +657,17 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                           <Typography variant="body2" color="text.secondary">
                             • Terminal {term.name}: {isAirlineTerminal ? `${airline.name} operates from here.` : 'Other airlines operate from here.'}
                           </Typography>
-                          {terminalPhone?.phone_number && (
-                            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                              • Terminal {term.name} Phone: {terminalPhone.phone_number}
-                            </Typography>
-                          )}
+                          {(() => {
+                            const phone = terminalPhone?.terminal_phone || terminalPhone?.phone_number || terminalPhone?.airlines_phone || terminalPhone?.airport_phone;
+                            if (phone) {
+                              return (
+                                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                                  • Terminal {term.name} Phone: {phone}
+                                </Typography>
+                              );
+                            }
+                            return null;
+                          })()}
                           {terminalPhone?.help_desk_phone && (
                             <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
                               • Terminal {term.name} Help Desk: {terminalPhone.help_desk_phone}
@@ -683,10 +689,13 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                 {terminalPhones
                   .filter(tp => {
                     // Show if it matches the airline code or is general (no airline_code)
-                    const matchesAirline = !tp.airline_code || tp.airline_code.toUpperCase() === (airline.iata || airline.code)?.toUpperCase();
+                    const matchesAirline = (!tp.airline_code && !tp.airline_iata) || 
+                                          tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() ||
+                                          tp.airline_iata?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase();
                     // Show if not already covered by airport.terminals
-                    const notInTerminals = !airport.terminals?.some(term => term.name === tp.terminal_name);
-                    return matchesAirline && (tp.phone_number || tp.help_desk_phone || tp.terminal_location) && (notInTerminals || tp.terminal_name);
+                    const notInTerminals = !airport.terminals?.some(term => term.name === (tp.terminal_name || tp.departure_terminal || tp.arrival_terminal));
+                    const hasPhone = tp.terminal_phone || tp.phone_number || tp.airlines_phone || tp.airport_phone;
+                    return matchesAirline && (hasPhone || tp.help_desk_phone || tp.terminal_location) && (notInTerminals || tp.terminal_name || tp.departure_terminal || tp.arrival_terminal);
                   })
                   .map((terminal, idx) => (
                     <Box key={`terminal-phone-${idx}`} sx={{ mb: 1 }}>
@@ -695,11 +704,17 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                           Terminal {terminal.terminal_name}:
                         </Typography>
                       )}
-                      {terminal.phone_number && (
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: terminal.terminal_name ? 2 : 0 }}>
-                          • {terminal.airline_name || airline.name} Terminal Phone: {terminal.phone_number}
-                        </Typography>
-                      )}
+                      {(() => {
+                        const phone = terminal.terminal_phone || terminal.phone_number || terminal.airlines_phone || terminal.airport_phone;
+                        if (phone) {
+                          return (
+                            <Typography variant="body2" color="text.secondary" sx={{ ml: terminal.terminal_name ? 2 : 0 }}>
+                              • {terminal.airline_name || airline.name} Terminal Phone: {phone}
+                            </Typography>
+                          );
+                        }
+                        return null;
+                      })()}
                       {terminal.help_desk_phone && (
                         <Typography variant="body2" color="text.secondary" sx={{ ml: terminal.terminal_name ? 2 : 0 }}>
                           • Help Desk: {terminal.help_desk_phone}
@@ -1347,8 +1362,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
   const priceMonthData = deepRoute?.flight_data?.price_month_data;
   const monthlyPrices = priceMonthData 
     ? Object.entries(priceMonthData).map(([month, price]: [string, any]) => {
-        // Replace 2023 with 2025 in month names
-        const updatedMonth = month.replace(/2023/g, '2025');
+        // Replace any year (2020-2024) with 2025 in month names
+        let updatedMonth = month.replace(/202[0-4]/g, '2025');
+        // Also handle any other year format that might exist
+        updatedMonth = updatedMonth.replace(/\b2023\b/g, '2025');
+        updatedMonth = updatedMonth.replace(/\b2024\b/g, '2025');
         return {
           month: updatedMonth,
           monthShort: updatedMonth.substring(0, 3),
@@ -1390,6 +1408,13 @@ export default async function AirlineRoutePage({ params }: PageProps) {
   // Get terminal phone information
   const originTerminalPhones = await getTerminalPhones(origin, airline.iata || airline.code);
   const destinationTerminalPhones = await getTerminalPhones(destination, airline.iata || airline.code);
+  
+  // Get terminal info for route (using new schema)
+  const routeTerminalInfo = await getTerminalInfoForRoute(
+    origin,
+    destination,
+    airline.iata || airline.code || code
+  );
   
   // Generate airline-specific FAQs with terminal information
   const faqs = await generateAirlineRouteFAQs(
@@ -1441,6 +1466,62 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       {airlineFlightListingSchema && <JsonLd data={airlineFlightListingSchema} />}
       {airlineScheduleSchema && <JsonLd data={airlineScheduleSchema} />}
       {faqSchema && <JsonLd data={faqSchema} />}
+      
+      {/* Local Business JSON-LD for Origin Terminal */}
+      {(() => {
+        const originTerminal = routeTerminalInfo?.origin || originTerminalPhones.find(tp => tp.departure_terminal || tp.terminal_name);
+        if (originTerminal) {
+          const terminal = originTerminal.departure_terminal || originTerminal.terminal_name;
+          const phone = originTerminal.terminal_phone || originTerminal.phone_number || originTerminal.airlines_phone || originTerminal.airport_phone;
+          if (terminal || phone) {
+            const localBusinessSchema = generateAirlineLocalBusinessSchema(
+              airline.name,
+              airline.iata || airline.code || code,
+              originDisplay,
+              origin,
+              terminal,
+              phone,
+              originAirport?.address ? {
+                addressLocality: originAirport.city || originDisplay,
+                addressRegion: originAirport.state,
+                addressCountry: originAirport.country,
+                streetAddress: originAirport.address,
+              } : undefined,
+              airline.website
+            );
+            return <JsonLd data={localBusinessSchema} />;
+          }
+        }
+        return null;
+      })()}
+      
+      {/* Local Business JSON-LD for Destination Terminal */}
+      {(() => {
+        const destTerminal = routeTerminalInfo?.destination || destinationTerminalPhones.find(tp => tp.arrival_terminal || tp.terminal_name);
+        if (destTerminal) {
+          const terminal = destTerminal.arrival_terminal || destTerminal.terminal_name;
+          const phone = destTerminal.terminal_phone || destTerminal.phone_number || destTerminal.airlines_phone || destTerminal.airport_phone;
+          if (terminal || phone) {
+            const localBusinessSchema = generateAirlineLocalBusinessSchema(
+              airline.name,
+              airline.iata || airline.code || code,
+              destinationDisplay,
+              destination,
+              terminal,
+              phone,
+              destinationAirport?.address ? {
+                addressLocality: destinationAirport.city || destinationDisplay,
+                addressRegion: destinationAirport.state,
+                addressCountry: destinationAirport.country,
+                streetAddress: destinationAirport.address,
+              } : undefined,
+              airline.website
+            );
+            return <JsonLd data={localBusinessSchema} />;
+          }
+        }
+        return null;
+      })()}
 
       {/* 1. Route Header with Airline-specific heading */}
       <RouteHeader
@@ -1473,6 +1554,104 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           arrivingTerminal={terminals.arriving ? `${terminals.arriving} (${destination})` : undefined}
         />
       </Box>
+
+      {/* 2.5. Terminal Information & Contact Details */}
+      {(routeTerminalInfo?.origin || routeTerminalInfo?.destination || originTerminalPhones.length > 0 || destinationTerminalPhones.length > 0) && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
+            {airline.name} Terminal Information & Contact
+          </Typography>
+          <Paper sx={{ p: 3 }}>
+            <Grid container spacing={3}>
+              {/* Origin Terminal Information */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LocationOnIcon fontSize="small" />
+                  Departure Terminal - {originDisplay}
+                </Typography>
+                <Box sx={{ pl: 2 }}>
+                  {routeTerminalInfo?.origin?.departure_terminal && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Terminal:</strong> {routeTerminalInfo.origin.departure_terminal}
+                    </Typography>
+                  )}
+                  {!routeTerminalInfo?.origin?.departure_terminal && originTerminalPhones.find(tp => tp.departure_terminal) && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Terminal:</strong> {originTerminalPhones.find(tp => tp.departure_terminal)?.departure_terminal}
+                    </Typography>
+                  )}
+                  {(() => {
+                    const originTerminal = routeTerminalInfo?.origin || originTerminalPhones.find(tp => tp.departure_terminal || tp.terminal_name);
+                    const phone = originTerminal?.terminal_phone || originTerminal?.phone_number || originTerminal?.airlines_phone || originTerminal?.airport_phone;
+                    if (phone) {
+                      return (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <PhoneIcon fontSize="small" />
+                          <strong>Phone:</strong> {phone}
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {originAirport?.address && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Address:</strong> {routeTerminalInfo?.origin?.departure_terminal || originTerminalPhones.find(tp => tp.departure_terminal)?.departure_terminal || 'Terminal'}, {originAirport.address}
+                    </Typography>
+                  )}
+                  {routeTerminalInfo?.origin?.counter_office && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Counter Office:</strong> {routeTerminalInfo.origin.counter_office}
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
+
+              {/* Destination Terminal Information */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LocationOnIcon fontSize="small" />
+                  Arrival Terminal - {destinationDisplay}
+                </Typography>
+                <Box sx={{ pl: 2 }}>
+                  {routeTerminalInfo?.destination?.arrival_terminal && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Terminal:</strong> {routeTerminalInfo.destination.arrival_terminal}
+                    </Typography>
+                  )}
+                  {!routeTerminalInfo?.destination?.arrival_terminal && destinationTerminalPhones.find(tp => tp.arrival_terminal) && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Terminal:</strong> {destinationTerminalPhones.find(tp => tp.arrival_terminal)?.arrival_terminal}
+                    </Typography>
+                  )}
+                  {(() => {
+                    const destTerminal = routeTerminalInfo?.destination || destinationTerminalPhones.find(tp => tp.arrival_terminal || tp.terminal_name);
+                    const phone = destTerminal?.terminal_phone || destTerminal?.phone_number || destTerminal?.airlines_phone || destTerminal?.airport_phone;
+                    if (phone) {
+                      return (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <PhoneIcon fontSize="small" />
+                          <strong>Phone:</strong> {phone}
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {destinationAirport?.address && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Address:</strong> {routeTerminalInfo?.destination?.arrival_terminal || destinationTerminalPhones.find(tp => tp.arrival_terminal)?.arrival_terminal || 'Terminal'}, {destinationAirport.address}
+                    </Typography>
+                  )}
+                  {routeTerminalInfo?.destination?.counter_office && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Counter Office:</strong> {routeTerminalInfo.destination.counter_office}
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Box>
+      )}
 
       {/* 3. Flight List Section */}
       {flights.length > 0 && (
