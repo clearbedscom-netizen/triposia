@@ -53,7 +53,7 @@ import AirlineStopsIcon from '@mui/icons-material/AirlineStops';
 import LocalAirportIcon from '@mui/icons-material/LocalAirport';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
-import QASection from '@/components/faq/QASection';
+import QASection from '@/components/faq/QASectionLazy';
 
 interface PageProps {
   params: {

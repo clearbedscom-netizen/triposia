@@ -17,7 +17,7 @@ import DataTransparency from '@/components/ui/DataTransparency';
 import FlightIcon from '@mui/icons-material/Flight';
 import Link from 'next/link';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
-import QASection from '@/components/faq/QASection';
+import QASection from '@/components/faq/QASectionLazy';
 import LanguageIcon from '@mui/icons-material/Language';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';

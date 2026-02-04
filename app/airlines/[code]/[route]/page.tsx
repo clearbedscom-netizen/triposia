@@ -45,7 +45,7 @@ import Link from 'next/link';
 import FlightIcon from '@mui/icons-material/Flight';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
-import QASection from '@/components/faq/QASection';
+import QASection from '@/components/faq/QASectionLazy';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LanguageIcon from '@mui/icons-material/Language';

@@ -28,7 +28,7 @@ import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import FlightIcon from '@mui/icons-material/Flight';
 import InfoIcon from '@mui/icons-material/Info';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
-import QASection from '@/components/faq/QASection';
+import QASection from '@/components/faq/QASectionLazy';
 
 interface PageProps {
   params: {
