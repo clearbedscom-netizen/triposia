@@ -1084,11 +1084,13 @@ export default async function FlightRoutePage({ params }: PageProps) {
       )}
 
       {/* Q&A Section */}
-      <QASection
-        pageType="flight-route"
-        pageSlug={params.route}
-        pageUrl={`/flights/${params.route}`}
-      />
+      <Box sx={{ my: 6 }}>
+        <QASection
+          pageType="flight-route"
+          pageSlug={params.route}
+          pageUrl={`/flights/${params.route}`}
+        />
+      </Box>
     </Container>
   );
 }

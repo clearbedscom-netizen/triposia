@@ -54,7 +54,7 @@ export default function QuestionForm({
     }
 
     const recaptchaToken = recaptchaRef.current?.getValue();
-    if (!recaptchaToken) {
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && !recaptchaToken) {
       setError('Please complete the reCAPTCHA verification');
       return;
     }
@@ -72,7 +72,7 @@ export default function QuestionForm({
           pageType,
           pageSlug,
           pageUrl,
-          recaptchaToken,
+          ...(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && { recaptchaToken }),
         }),
       });
 
@@ -181,13 +181,15 @@ export default function QuestionForm({
           inputProps={{ maxLength: 500 }}
         />
 
-        <Box sx={{ mb: 2 }}>
-          <ReCAPTCHA
-            ref={recaptchaRef}
-            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''}
-            theme="light"
-          />
-        </Box>
+        {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+          <Box sx={{ mb: 2 }}>
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+              theme="light"
+            />
+          </Box>
+        )}
 
         <Button
           type="submit"

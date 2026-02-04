@@ -88,6 +88,7 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
 
   useEffect(() => {
     fetchFAQs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageType, pageSlug]);
 
   const handleQuestionSubmitted = () => {
@@ -221,9 +222,11 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
 
       {!loading && faqs.length > 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {faqs.map((faq) => (
+          {faqs.map((faq) => {
+            const faqId = faq._id?.toString() || '';
+            return (
             <Paper
-              key={faq._id?.toString()}
+              key={faqId}
               sx={{
                 p: 3,
                 border: faq.isHighlighted && !faq.isAnswered ? 2 : 1,
@@ -254,7 +257,13 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
                     {faq.userName}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {formatDistanceToNow(new Date(faq.createdAt), { addSuffix: true })}
+                    {(() => {
+                      try {
+                        return formatDistanceToNow(new Date(faq.createdAt), { addSuffix: true });
+                      } catch {
+                        return 'recently';
+                      }
+                    })()}
                   </Typography>
                 </Box>
               </Box>
@@ -318,7 +327,13 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
                             )}
                           </Box>
                           <Typography variant="caption" color="text.secondary">
-                            {formatDistanceToNow(new Date(answer.createdAt), { addSuffix: true })}
+                            {(() => {
+                              try {
+                                return formatDistanceToNow(new Date(answer.createdAt), { addSuffix: true });
+                              } catch {
+                                return 'recently';
+                              }
+                            })()}
                           </Typography>
                         </Box>
                       </Box>
@@ -389,7 +404,13 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
                                       {comment.userName}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                                      {(() => {
+                                        try {
+                                          return formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true });
+                                        } catch {
+                                          return 'recently';
+                                        }
+                                      })()}
                                     </Typography>
                                   </Box>
                                 </Box>
