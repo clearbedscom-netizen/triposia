@@ -53,6 +53,7 @@ import AirlineStopsIcon from '@mui/icons-material/AirlineStops';
 import LocalAirportIcon from '@mui/icons-material/LocalAirport';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
+import QASection from '@/components/faq/QASection';
 
 interface PageProps {
   params: {
@@ -1081,6 +1082,13 @@ export default async function FlightRoutePage({ params }: PageProps) {
             </Paper>
           </Box>
       )}
+
+      {/* Q&A Section */}
+      <QASection
+        pageType="flight-route"
+        pageSlug={params.route}
+        pageUrl={`/flights/${params.route}`}
+      />
     </Container>
   );
 }

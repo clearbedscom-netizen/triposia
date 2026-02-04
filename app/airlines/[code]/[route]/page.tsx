@@ -45,6 +45,7 @@ import Link from 'next/link';
 import FlightIcon from '@mui/icons-material/Flight';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
+import QASection from '@/components/faq/QASection';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LanguageIcon from '@mui/icons-material/Language';
@@ -695,30 +696,30 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                              matchingTerminal?.airlines_phone || 
                              matchingTerminal?.airport_phone;
 
-                return (
+                      return (
                   <>
                     <Typography variant="body1" color="text.primary" sx={{ mb: 1, lineHeight: 1.6 }}>
                       All {airline.name} flights operate from {terminalNumber} at {airportDisplay} airport.
-                    </Typography>
+                          </Typography>
                     
                     {phone && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         <strong>Terminal Phone:</strong> <Link href={`tel:${phone.replace(/\s/g, '')}`} style={{ color: 'inherit', textDecoration: 'underline' }}>{phone}</Link>
-                      </Typography>
-                    )}
+                        </Typography>
+                      )}
                     
                     {matchingTerminal?.help_desk_phone && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         <strong>Help Desk:</strong> <Link href={`tel:${matchingTerminal.help_desk_phone.replace(/\s/g, '')}`} style={{ color: 'inherit', textDecoration: 'underline' }}>{matchingTerminal.help_desk_phone}</Link>
                         {matchingTerminal.help_desk_hours && ` (Hours: ${matchingTerminal.help_desk_hours})`}
-                      </Typography>
+                    </Typography>
                     )}
                     
                     {matchingTerminal?.counter_office && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         <strong>Counter Office:</strong> {matchingTerminal.counter_office}
-                      </Typography>
-                    )}
+                </Typography>
+              )}
                   </>
                 );
               })()}
@@ -866,6 +867,13 @@ export default async function AirlineRoutePage({ params }: PageProps) {
             </Paper>
           </Box>
         )}
+
+        {/* Q&A Section */}
+        <QASection
+          pageType="airline-airport"
+          pageSlug={`${code.toLowerCase()}/${iata.toLowerCase()}`}
+          pageUrl={`/airlines/${code.toLowerCase()}/${iata.toLowerCase()}`}
+        />
 
         {/* Airlines Contact Information and Customer Services */}
         {(airline.address || airline.phone || airline.website || airline.city || airline.state || 
@@ -1342,7 +1350,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         return {
           month: updatedMonth,
           monthShort: updatedMonth.substring(0, 3),
-          price: typeof price === 'number' ? price : parseInt(String(price).replace(/[^0-9]/g, ''), 10) || 0,
+        price: typeof price === 'number' ? price : parseInt(String(price).replace(/[^0-9]/g, ''), 10) || 0,
         };
       })
     : [];
