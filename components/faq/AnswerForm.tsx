@@ -78,7 +78,7 @@ export default function AnswerForm({ faqId, onAnswerSubmitted }: AnswerFormProps
         },
         body: JSON.stringify({
           content: content.trim(),
-          isExpertAnswer: isExpertAnswer && isAdmin,
+          isExpertAnswer: isExpertAnswer && isExpert,
         }),
       });
 
