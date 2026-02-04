@@ -181,7 +181,7 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
   };
 
   return (
-    <Box sx={{ my: 6 }}>
+    <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <QuestionAnswerIcon color="primary" />
         <Typography variant="h4" component="h2">
@@ -225,7 +225,7 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
           {faqs.map((faq) => {
             const faqId = faq._id?.toString() || '';
             return (
-            <Paper
+              <Paper
               key={faqId}
               sx={{
                 p: 3,
@@ -444,7 +444,8 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
                 />
               )}
             </Paper>
-          ))}
+            );
+          })}
         </Box>
       )}
     </Box>
