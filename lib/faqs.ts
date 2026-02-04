@@ -199,7 +199,7 @@ export async function addAnswerToFAQ(
       { returnDocument: 'after' }
     );
 
-    return result.value || null;
+    return result?.value || null;
   } catch (error) {
     console.error('Error adding answer to FAQ:', error);
     return null;
@@ -245,7 +245,7 @@ export async function addCommentToAnswer(
       { returnDocument: 'after' }
     );
 
-    return result.value || null;
+    return result?.value || null;
   } catch (error) {
     console.error('Error adding comment to answer:', error);
     return null;
