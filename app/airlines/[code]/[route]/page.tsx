@@ -633,123 +633,95 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* Terminal Information with Bullet Points */}
+        {/* Terminal Information */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
             {airline.name} Terminal Information at {airportDisplay}
           </Typography>
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Terminal information from airport.terminals */}
-              {airport.terminals && airport.terminals.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
-                      Terminals:
-                    </Typography>
-                    {airport.terminals.map((term, idx) => {
-                      const isAirlineTerminal = term.airlines.includes(airline.iata || airline.code || '');
-                      const terminalPhone = terminalPhones.find(tp => 
-                        tp.terminal_name === term.name && 
-                        (tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() || !tp.airline_code)
-                      );
-                      return (
-                        <Box key={idx} sx={{ mb: 1.5 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            • Terminal {term.name}: {isAirlineTerminal ? `${airline.name} operates from here.` : 'Other airlines operate from here.'}
-                          </Typography>
-                          {(() => {
-                            const phone = terminalPhone?.terminal_phone || terminalPhone?.phone_number || terminalPhone?.airlines_phone || terminalPhone?.airport_phone;
-                            if (phone) {
-                              return (
-                                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                                  • Terminal {term.name} Phone: {phone}
-                                </Typography>
-                              );
-                            }
-                            return null;
-                          })()}
-                          {terminalPhone?.help_desk_phone && (
-                            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                              • Terminal {term.name} Help Desk: {terminalPhone.help_desk_phone}
-                              {terminalPhone.help_desk_hours && ` (Hours: ${terminalPhone.help_desk_hours})`}
-                            </Typography>
-                          )}
-                          {terminalPhone?.terminal_location && (
-                            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                              • Terminal {term.name} Location: {terminalPhone.terminal_location}
-                            </Typography>
-                          )}
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                )}
+              {(() => {
+                // Find terminal from terminal_phones collection matching airline and airport
+                const airlineCode = airline.iata || airline.code || code;
+                const matchingTerminal = terminalPhones.find(tp => 
+                  (tp.airline_code?.toUpperCase() === airlineCode.toUpperCase() ||
+                   tp.airline_iata?.toUpperCase() === airlineCode.toUpperCase()) &&
+                  (tp.airport_iata?.toUpperCase() === iata.toUpperCase() ||
+                   tp.city_iata?.toUpperCase() === iata.toUpperCase())
+                );
+
+                // Get terminal number - prioritize from terminal_phones, then airport.terminals, then fallback
+                let terminalNumber: string | null = null;
                 
-                {/* Show all terminal phones from collection that match this airline and airport */}
-                {terminalPhones
-                  .filter(tp => {
-                    // Show if it matches the airline code or is general (no airline_code)
-                    const matchesAirline = (!tp.airline_code && !tp.airline_iata) || 
-                                          tp.airline_code?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase() ||
-                                          tp.airline_iata?.toUpperCase() === (airline.iata || airline.code)?.toUpperCase();
-                    // Show if not already covered by airport.terminals
-                    const notInTerminals = !airport.terminals?.some(term => term.name === (tp.terminal_name || tp.departure_terminal || tp.arrival_terminal));
-                    const hasPhone = tp.terminal_phone || tp.phone_number || tp.airlines_phone || tp.airport_phone;
-                    return matchesAirline && (hasPhone || tp.help_desk_phone || tp.terminal_location) && (notInTerminals || tp.terminal_name || tp.departure_terminal || tp.arrival_terminal);
-                  })
-                  .map((terminal, idx) => (
-                    <Box key={`terminal-phone-${idx}`} sx={{ mb: 1 }}>
-                      {terminal.terminal_name && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 500 }}>
-                          Terminal {terminal.terminal_name}:
-                        </Typography>
-                      )}
-                      {(() => {
-                        const phone = terminal.terminal_phone || terminal.phone_number || terminal.airlines_phone || terminal.airport_phone;
-                        if (phone) {
-                          return (
-                            <Typography variant="body2" color="text.secondary" sx={{ ml: terminal.terminal_name ? 2 : 0 }}>
-                              • {terminal.airline_name || airline.name} Terminal Phone: {phone}
-                            </Typography>
-                          );
-                        }
-                        return null;
-                      })()}
-                      {terminal.help_desk_phone && (
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: terminal.terminal_name ? 2 : 0 }}>
-                          • Help Desk: {terminal.help_desk_phone}
-                          {terminal.help_desk_hours && ` (Hours: ${terminal.help_desk_hours})`}
-                        </Typography>
-                      )}
-                      {terminal.terminal_location && (
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: terminal.terminal_name ? 2 : 0 }}>
-                          • Location: {terminal.terminal_location}
-                        </Typography>
-                      )}
-                    </Box>
-                  ))}
+                if (matchingTerminal) {
+                  terminalNumber = matchingTerminal.departure_terminal || 
+                                  matchingTerminal.arrival_terminal || 
+                                  matchingTerminal.terminal_name || 
+                                  null;
+                }
                 
-                {/* General airport help desk (if no specific terminal) */}
-                {terminalPhones.filter(tp => tp.help_desk_phone && !tp.terminal_name).length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>
-                      {airportDisplay} Help Desk:
+                // If not found in terminal_phones, check airport.terminals
+                if (!terminalNumber && airport.terminals && airport.terminals.length > 0) {
+                  const airlineTerminal = airport.terminals.find(term => 
+                    term.airlines.includes(airlineCode)
+                  );
+                  if (airlineTerminal) {
+                    terminalNumber = airlineTerminal.name;
+                  }
+                }
+                
+                // Fallback to Terminal 1 or main terminal
+                if (!terminalNumber) {
+                  // Check if there's a "main" terminal in airport.terminals
+                  if (airport.terminals && airport.terminals.length > 0) {
+                    const mainTerminal = airport.terminals.find(term => 
+                      term.name.toLowerCase().includes('main') || 
+                      term.name.toLowerCase() === '1'
+                    );
+                    terminalNumber = mainTerminal ? mainTerminal.name : 'Terminal 1';
+                  } else {
+                    terminalNumber = 'Terminal 1'; // Default fallback
+                  }
+                }
+                
+                // Ensure terminal number is properly formatted (add "Terminal" prefix if missing)
+                if (terminalNumber && !terminalNumber.toLowerCase().startsWith('terminal') && !terminalNumber.toLowerCase().startsWith('main')) {
+                  terminalNumber = `Terminal ${terminalNumber}`;
+                }
+
+                // Get phone number with fallback
+                const phone = matchingTerminal?.terminal_phone || 
+                             matchingTerminal?.phone_number || 
+                             matchingTerminal?.airlines_phone || 
+                             matchingTerminal?.airport_phone;
+
+                return (
+                  <>
+                    <Typography variant="body1" color="text.primary" sx={{ mb: 1, lineHeight: 1.6 }}>
+                      All {airline.name} flights operate from {terminalNumber} at {airportDisplay} airport.
                     </Typography>
-                    {terminalPhones.filter(tp => tp.help_desk_phone && !tp.terminal_name).map((terminal, idx) => (
-                      <Typography key={idx} variant="body2" color="text.secondary">
-                        • Phone: {terminal.help_desk_phone}
-                        {terminal.help_desk_hours && ` (Hours: ${terminal.help_desk_hours})`}
+                    
+                    {phone && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Terminal Phone:</strong> <Link href={`tel:${phone.replace(/\s/g, '')}`} style={{ color: 'inherit', textDecoration: 'underline' }}>{phone}</Link>
                       </Typography>
-                    ))}
-                  </Box>
-                )}
-              
-              {/* Show message if no terminal data available */}
-              {(!airport.terminals || airport.terminals.length === 0) && terminalPhones.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  Terminal information for {airline.name} at {airportDisplay} is currently being updated. Please check back soon or contact the airport directly for terminal details.
-                </Typography>
-              )}
+                    )}
+                    
+                    {matchingTerminal?.help_desk_phone && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Help Desk:</strong> <Link href={`tel:${matchingTerminal.help_desk_phone.replace(/\s/g, '')}`} style={{ color: 'inherit', textDecoration: 'underline' }}>{matchingTerminal.help_desk_phone}</Link>
+                        {matchingTerminal.help_desk_hours && ` (Hours: ${matchingTerminal.help_desk_hours})`}
+                      </Typography>
+                    )}
+                    
+                    {matchingTerminal?.counter_office && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Counter Office:</strong> {matchingTerminal.counter_office}
+                      </Typography>
+                    )}
+                  </>
+                );
+              })()}
             </Box>
           </Paper>
         </Box>
