@@ -16,6 +16,7 @@ import {
 import ReCAPTCHA from 'react-google-recaptcha';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import LoginIcon from '@mui/icons-material/Login';
+import GoogleIcon from '@mui/icons-material/Google';
 
 interface QuestionFormProps {
   pageType: 'flight-route' | 'airline-route' | 'airline-airport' | 'airport' | 'airline' | 'general';
@@ -122,26 +123,46 @@ export default function QuestionForm({
           <QuestionAnswerIcon color="primary" />
           <Typography variant="h6">Ask a Question</Typography>
         </Box>
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Please sign in to ask a question about this page.
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Please sign in to ask a question about this page. You can sign in with Google or create a new account.
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+            <Button
+              variant="contained"
+              fullWidth={false}
+              startIcon={<GoogleIcon />}
+              onClick={() => signIn('google', { callbackUrl: pageUrl })}
+              sx={{
+                textTransform: 'none',
+                bgcolor: '#4285F4',
+                '&:hover': {
+                  bgcolor: '#357AE8',
+                },
+              }}
+            >
+              Sign in with Google
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth={false}
+              component={MuiLink}
+              href="/register"
+              sx={{ textDecoration: 'none', textTransform: 'none' }}
+            >
+              Create Account
+            </Button>
+            <Button
+              variant="text"
+              fullWidth={false}
+              component={MuiLink}
+              href="/login"
+              sx={{ textDecoration: 'none', textTransform: 'none' }}
+            >
+              Sign In
+            </Button>
+          </Box>
         </Alert>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={<LoginIcon />}
-            onClick={() => signIn(undefined, { callbackUrl: pageUrl })}
-          >
-            Sign In
-          </Button>
-          <Button
-            variant="outlined"
-            component={MuiLink}
-            href="/register"
-            sx={{ textDecoration: 'none' }}
-          >
-            Create Account
-          </Button>
-        </Box>
       </Paper>
     );
   }
