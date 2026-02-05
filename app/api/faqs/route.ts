@@ -45,10 +45,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // In App Router, we need to pass headers to getServerSession
+    // Get session - getServerSession automatically reads cookies in App Router
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
+      console.log('FAQ POST: No session found');
       return NextResponse.json(
         { 
           error: 'Authentication required',
@@ -57,6 +58,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    console.log('FAQ POST: Session found for user:', session.user.email);
 
     const body = await request.json();
     const { question, pageType, pageSlug, pageUrl, recaptchaToken } = body;
