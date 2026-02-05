@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -15,8 +15,7 @@ import {
 } from '@mui/material';
 import ReCAPTCHA from 'react-google-recaptcha';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
-import LoginIcon from '@mui/icons-material/Login';
-import GoogleIcon from '@mui/icons-material/Google';
+import AuthModal from '@/components/auth/AuthModal';
 
 interface QuestionFormProps {
   pageType: 'flight-route' | 'airline-route' | 'airline-airport' | 'airport' | 'airline' | 'general';
@@ -37,6 +36,7 @@ export default function QuestionForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,10 +45,7 @@ export default function QuestionForm({
     setSuccess(false);
 
     if (!session) {
-      setError('Please sign in to ask a question. Redirecting to sign-in...');
-      setTimeout(() => {
-        signIn('google', { callbackUrl: pageUrl });
-      }, 1500);
+      setAuthModalOpen(true);
       return;
     }
 
@@ -84,11 +81,9 @@ export default function QuestionForm({
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Authentication required - redirect to sign in
+          // Authentication required - show modal
           setError(data.message || data.error || 'Please sign in to ask a question.');
-          setTimeout(() => {
-            signIn('google', { callbackUrl: pageUrl });
-          }, 2000);
+          setAuthModalOpen(true);
         } else {
           setError(data.error || 'Failed to submit question. Please try again.');
         }
@@ -129,52 +124,30 @@ export default function QuestionForm({
 
   if (!session) {
     return (
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <QuestionAnswerIcon color="primary" />
-          <Typography variant="h6">Ask a Question</Typography>
-        </Box>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Please sign in to ask a question about this page. You can sign in with Google or create a new account.
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-            <Button
-              variant="contained"
-              fullWidth={false}
-              startIcon={<GoogleIcon />}
-              onClick={() => signIn('google', { callbackUrl: pageUrl })}
-              sx={{
-                textTransform: 'none',
-                bgcolor: '#4285F4',
-                '&:hover': {
-                  bgcolor: '#357AE8',
-                },
-              }}
-            >
-              Sign in with Google
-            </Button>
-            <Button
-              variant="outlined"
-              fullWidth={false}
-              component={MuiLink}
-              href="/register"
-              sx={{ textDecoration: 'none', textTransform: 'none' }}
-            >
-              Create Account
-            </Button>
-            <Button
-              variant="text"
-              fullWidth={false}
-              component={MuiLink}
-              href="/login"
-              sx={{ textDecoration: 'none', textTransform: 'none' }}
-            >
-              Sign In
-            </Button>
+      <>
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <QuestionAnswerIcon color="primary" />
+            <Typography variant="h6">Ask a Question</Typography>
           </Box>
-        </Alert>
-      </Paper>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Please sign in to ask a question about this page. You can sign in with Google or create a new account.
+          </Alert>
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={() => setAuthModalOpen(true)}
+            sx={{ textTransform: 'none' }}
+          >
+            Sign In or Register
+          </Button>
+        </Paper>
+        <AuthModal
+          open={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          callbackUrl={pageUrl}
+        />
+      </>
     );
   }
 
@@ -233,5 +206,11 @@ export default function QuestionForm({
         </Button>
       </Box>
     </Paper>
+    <AuthModal
+      open={authModalOpen}
+      onClose={() => setAuthModalOpen(false)}
+      callbackUrl={pageUrl}
+    />
+  </>
   );
 }

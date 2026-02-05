@@ -1,30 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import {
   Box,
   Alert,
   Button,
   IconButton,
-  Link as MuiLink,
   Collapse,
   Typography,
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  Google as GoogleIcon,
-  PersonAdd as PersonAddIcon,
   QuestionAnswer as QuestionAnswerIcon,
 } from '@mui/icons-material';
-import Link from 'next/link';
+import AuthModal from '@/components/auth/AuthModal';
 
 export default function SignInNotification() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const [dismissed, setDismissed] = useState(false);
   const [show, setShow] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // Check if user has dismissed this notification in localStorage
   useEffect(() => {
@@ -48,8 +46,9 @@ export default function SignInNotification() {
     localStorage.setItem(dismissedKey, 'true');
   };
 
-  const handleGoogleSignIn = async () => {
-    await signIn('google', { callbackUrl: pathname });
+  const handleOpenAuthModal = () => {
+    setAuthModalOpen(true);
+    handleDismiss(); // Dismiss notification when opening modal
   };
 
   // Don't show if user is signed in or loading
@@ -75,8 +74,7 @@ export default function SignInNotification() {
               <Button
                 variant="contained"
                 size="small"
-                startIcon={<GoogleIcon />}
-                onClick={handleGoogleSignIn}
+                onClick={handleOpenAuthModal}
                 sx={{
                   textTransform: 'none',
                   bgcolor: 'white',
@@ -86,25 +84,7 @@ export default function SignInNotification() {
                   },
                 }}
               >
-                Sign in with Google
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<PersonAddIcon />}
-                component={Link}
-                href="/register"
-                sx={{
-                  textTransform: 'none',
-                  borderColor: 'white',
-                  color: 'white',
-                  '&:hover': {
-                    borderColor: 'white',
-                    bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  },
-                }}
-              >
-                Register
+                Sign In / Register
               </Button>
               <IconButton
                 aria-label="close"
@@ -147,5 +127,11 @@ export default function SignInNotification() {
         </Alert>
       </Box>
     </Collapse>
+    <AuthModal
+      open={authModalOpen}
+      onClose={() => setAuthModalOpen(false)}
+      callbackUrl={pathname}
+    />
+  </>
   );
 }
