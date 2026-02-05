@@ -54,6 +54,8 @@ import LocalAirportIcon from '@mui/icons-material/LocalAirport';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
 import QASection from '@/components/faq/QASectionLazy';
+import FAQServerSection from '@/components/faq/FAQServerSection';
+import { findFAQsByPage } from '@/lib/faqs';
 
 interface PageProps {
   params: {
@@ -703,7 +705,38 @@ export default async function FlightRoutePage({ params }: PageProps) {
     destinationData
   );
 
-  // Generate FAQ schema for route page
+  // Fetch user-submitted FAQs for SEO
+  const userFAQs = await findFAQsByPage('flight-route', params.route, {
+    limit: 20,
+    sortBy: 'most-helpful',
+    includeUnanswered: false, // Only answered questions for SEO
+  });
+
+  // Generate FAQ schema from user-submitted FAQs (only answered ones)
+  const userFAQSchema = userFAQs.length > 0
+    ? generateFAQPageSchema(
+        userFAQs
+          .filter((faq) => faq.isAnswered && faq.answers && faq.answers.length > 0)
+          .map((faq) => {
+            // Get the best answer for schema
+            const bestAnswer =
+              faq.answers.find((a) => a.isExpertAnswer && a.isApproved !== false) ||
+              faq.answers
+                .filter((a) => a.isApproved !== false)
+                .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
+              faq.answers.find((a) => a.isApproved !== false);
+
+            return {
+              question: faq.question,
+              answer: bestAnswer?.content || '',
+            };
+          })
+          .filter((faq) => faq.answer), // Only include FAQs with answers
+        `Frequently Asked Questions about flights from ${originDisplay} to ${destinationDisplay}`
+      )
+    : null;
+
+  // Generate FAQ schema for route page (from generated FAQs)
   const routeFAQSchema = generateFAQPageSchema(
     routeFAQs,
     `Frequently Asked Questions about flights from ${originDisplay} to ${destinationDisplay}`
@@ -758,6 +791,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
         <JsonLd data={generatePriceCalendarSchema(monthlyPrices, origin, destination, originDisplay, destinationDisplay, averagePrice)} />
       )}
       {routeFAQSchema && <JsonLd data={routeFAQSchema} />}
+      {userFAQSchema && <JsonLd data={userFAQSchema} />}
 
       {/* 1. Route Header (flightsfrom.com style) */}
       <RouteHeader
@@ -1083,7 +1117,13 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
       )}
 
-      {/* Q&A Section */}
+      {/* Server-side FAQ Section for SEO */}
+      <FAQServerSection
+        pageType="flight-route"
+        pageSlug={params.route}
+      />
+
+      {/* Interactive Q&A Section */}
       <Box sx={{ my: 6 }}>
         <QASection
           pageType="flight-route"

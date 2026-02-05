@@ -29,6 +29,9 @@ import FlightIcon from '@mui/icons-material/Flight';
 import InfoIcon from '@mui/icons-material/Info';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
 import QASection from '@/components/faq/QASectionLazy';
+import FAQServerSection from '@/components/faq/FAQServerSection';
+import { findFAQsByPage } from '@/lib/faqs';
+import { generateFAQPageSchema } from '@/lib/seo';
 
 interface PageProps {
   params: {
@@ -148,6 +151,35 @@ export default async function AirportPage({ params }: PageProps) {
   ]);
 
   const airportSchema = generateAirportSchema(iata, `${iata} Airport`, airport.city, airport.country);
+
+  // Fetch user-submitted FAQs for SEO
+  const userFAQs = await findFAQsByPage('airport', iata.toLowerCase(), {
+    limit: 20,
+    sortBy: 'most-helpful',
+    includeUnanswered: false,
+  });
+
+  // Generate FAQ schema from user-submitted FAQs
+  const userFAQSchema = userFAQs.length > 0
+    ? generateFAQPageSchema(
+        userFAQs
+          .filter((faq) => faq.isAnswered && faq.answers && faq.answers.length > 0)
+          .map((faq) => {
+            const bestAnswer =
+              faq.answers.find((a) => a.isExpertAnswer && a.isApproved !== false) ||
+              faq.answers
+                .filter((a) => a.isApproved !== false)
+                .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
+              faq.answers.find((a) => a.isApproved !== false);
+            return {
+              question: faq.question,
+              answer: bestAnswer?.content || '',
+            };
+          })
+          .filter((faq) => faq.answer),
+        `Frequently Asked Questions about ${iata} Airport`
+      )
+    : null;
   const domesticIntl = getDomesticInternationalSplit(airport, routesFrom);
   
   // Get related routes, airlines, and blogs for linking (with limits)
@@ -203,6 +235,7 @@ export default async function AirportPage({ params }: PageProps) {
       
       <JsonLd data={breadcrumbData} />
       <JsonLd data={airportSchema} />
+      {userFAQSchema && <JsonLd data={userFAQSchema} />}
 
       {/* 1. Airport Header */}
       <Box sx={{ mb: 4 }}>
@@ -679,6 +712,13 @@ export default async function AirportPage({ params }: PageProps) {
       )}
 
       {/* Q&A Section */}
+      {/* Server-side FAQ Section for SEO */}
+      <FAQServerSection
+        pageType="airport"
+        pageSlug={iata.toLowerCase()}
+      />
+
+      {/* Interactive Q&A Section */}
       <QASection
         pageType="airport"
         pageSlug={iata.toLowerCase()}

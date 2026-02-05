@@ -66,7 +66,7 @@ Add the following to your `.env.local` file (or your hosting platform's environm
 
 ```bash
 # Google OAuth
-GOOGLE_CLIENT_ID=your_client_id_here.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=your_client_id_here
 GOOGLE_CLIENT_SECRET=your_client_secret_here
 
 # NextAuth

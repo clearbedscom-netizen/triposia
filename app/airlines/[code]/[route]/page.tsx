@@ -46,6 +46,8 @@ import FlightIcon from '@mui/icons-material/Flight';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
 import QASection from '@/components/faq/QASectionLazy';
+import FAQServerSection from '@/components/faq/FAQServerSection';
+import { findFAQsByPage } from '@/lib/faqs';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LanguageIcon from '@mui/icons-material/Language';
@@ -868,7 +870,13 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* Q&A Section */}
+        {/* Server-side FAQ Section for SEO */}
+        <FAQServerSection
+          pageType="airline-airport"
+          pageSlug={`${code.toLowerCase()}/${iata.toLowerCase()}`}
+        />
+
+        {/* Interactive Q&A Section */}
         <QASection
           pageType="airline-airport"
           pageSlug={`${code.toLowerCase()}/${iata.toLowerCase()}`}
@@ -1415,7 +1423,36 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     destinationTerminalPhones
   );
 
-  // Generate FAQ schema
+  // Fetch user-submitted FAQs for SEO
+  const userFAQs = await findFAQsByPage('airline-route', routeSlug, {
+    limit: 20,
+    sortBy: 'most-helpful',
+    includeUnanswered: false,
+  });
+
+  // Generate FAQ schema from user-submitted FAQs
+  const userFAQSchema = userFAQs.length > 0
+    ? generateFAQPageSchema(
+        userFAQs
+          .filter((faq) => faq.isAnswered && faq.answers && faq.answers.length > 0)
+          .map((faq) => {
+            const bestAnswer =
+              faq.answers.find((a) => a.isExpertAnswer && a.isApproved !== false) ||
+              faq.answers
+                .filter((a) => a.isApproved !== false)
+                .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
+              faq.answers.find((a) => a.isApproved !== false);
+            return {
+              question: faq.question,
+              answer: bestAnswer?.content || '',
+            };
+          })
+          .filter((faq) => faq.answer),
+        `Frequently Asked Questions about ${airline.name} flights from ${originDisplay} to ${destinationDisplay}`
+      )
+    : null;
+
+  // Generate FAQ schema (from generated FAQs)
   const faqSchema = generateFAQPageSchema(
     faqs,
     `Frequently Asked Questions about ${airline.name} flights from ${originDisplay} to ${destinationDisplay}`
@@ -1446,6 +1483,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       {airlineFlightListingSchema && <JsonLd data={airlineFlightListingSchema} />}
       {airlineScheduleSchema && <JsonLd data={airlineScheduleSchema} />}
       {faqSchema && <JsonLd data={faqSchema} />}
+      {userFAQSchema && <JsonLd data={userFAQSchema} />}
       
       {/* Local Business JSON-LD for Origin Terminal */}
       {(() => {
@@ -2308,6 +2346,21 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           </Paper>
         </Box>
       )}
+
+      {/* Server-side FAQ Section for SEO */}
+      <FAQServerSection
+        pageType="airline-route"
+        pageSlug={routeSlug}
+      />
+
+      {/* Interactive Q&A Section */}
+      <Box sx={{ my: 6 }}>
+        <QASection
+          pageType="airline-route"
+          pageSlug={routeSlug}
+          pageUrl={`/airlines/${code.toLowerCase()}/${routeSlug}`}
+        />
+      </Box>
 
       {/* Related Pages */}
       <RelatedPages

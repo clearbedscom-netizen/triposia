@@ -18,6 +18,9 @@ import FlightIcon from '@mui/icons-material/Flight';
 import Link from 'next/link';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
 import QASection from '@/components/faq/QASectionLazy';
+import FAQServerSection from '@/components/faq/FAQServerSection';
+import { findFAQsByPage } from '@/lib/faqs';
+import { generateFAQPageSchema } from '@/lib/seo';
 import LanguageIcon from '@mui/icons-material/Language';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -88,6 +91,35 @@ export default async function AirlinePage({ params }: PageProps) {
 
   const airlineSchema = generateAirlineSchema(code, airline.name, airline.country);
 
+  // Fetch user-submitted FAQs for SEO
+  const userFAQs = await findFAQsByPage('airline', code.toLowerCase(), {
+    limit: 20,
+    sortBy: 'most-helpful',
+    includeUnanswered: false,
+  });
+
+  // Generate FAQ schema from user-submitted FAQs
+  const userFAQSchema = userFAQs.length > 0
+    ? generateFAQPageSchema(
+        userFAQs
+          .filter((faq) => faq.isAnswered && faq.answers && faq.answers.length > 0)
+          .map((faq) => {
+            const bestAnswer =
+              faq.answers.find((a) => a.isExpertAnswer && a.isApproved !== false) ||
+              faq.answers
+                .filter((a) => a.isApproved !== false)
+                .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
+              faq.answers.find((a) => a.isApproved !== false);
+            return {
+              question: faq.question,
+              answer: bestAnswer?.content || '',
+            };
+          })
+          .filter((faq) => faq.answer),
+        `Frequently Asked Questions about ${airline.name}`
+      )
+    : null;
+
   // Calculate reliability based on route count
   const reliability: 'Very Stable' | 'Moderate' | 'Seasonal' | 'Limited' = 
     routes.length >= 50 ? 'Very Stable' :
@@ -153,6 +185,7 @@ export default async function AirlinePage({ params }: PageProps) {
       
       <JsonLd data={breadcrumbData} />
       <JsonLd data={airlineSchema} />
+      {userFAQSchema && <JsonLd data={userFAQSchema} />}
 
       {/* Header Section */}
       <Box sx={{ mb: 4 }}>
@@ -1003,7 +1036,13 @@ export default async function AirlinePage({ params }: PageProps) {
         </Box>
       )}
 
-      {/* Q&A Section */}
+      {/* Server-side FAQ Section for SEO */}
+      <FAQServerSection
+        pageType="airline"
+        pageSlug={code.toLowerCase()}
+      />
+
+      {/* Interactive Q&A Section */}
       <QASection
         pageType="airline"
         pageSlug={code.toLowerCase()}
