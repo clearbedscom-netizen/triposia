@@ -80,7 +80,15 @@ export default function QuestionForm({
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Failed to submit question. Please try again.');
+        if (response.status === 401) {
+          // Authentication required - redirect to sign in
+          setError(data.message || data.error || 'Please sign in to ask a question.');
+          setTimeout(() => {
+            signIn('google', { callbackUrl: pageUrl });
+          }, 2000);
+        } else {
+          setError(data.error || 'Failed to submit question. Please try again.');
+        }
         recaptchaRef.current?.reset();
         setLoading(false);
         return;

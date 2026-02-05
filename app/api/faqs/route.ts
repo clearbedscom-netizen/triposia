@@ -45,11 +45,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // In App Router, we need to pass headers to getServerSession
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { 
+          error: 'Authentication required',
+          message: 'Please sign in to ask a question. You can sign in with Google or create an account.'
+        },
         { status: 401 }
       );
     }
