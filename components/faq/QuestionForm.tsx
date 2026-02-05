@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import {
   Box,
   Paper,
@@ -13,7 +14,6 @@ import {
   Link as MuiLink,
   CircularProgress,
 } from '@mui/material';
-import ReCAPTCHA from 'react-google-recaptcha';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import AuthModal from '@/components/auth/AuthModal';
 
@@ -32,12 +32,12 @@ export default function QuestionForm({
 }: QuestionFormProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,10 +54,20 @@ export default function QuestionForm({
       return;
     }
 
-    const recaptchaToken = recaptchaRef.current?.getValue();
-    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && !recaptchaToken) {
-      setError('Please complete the reCAPTCHA verification');
-      return;
+    // Get reCAPTCHA v3 token
+    let recaptchaToken: string | undefined;
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+      if (!executeRecaptcha) {
+        setError('reCAPTCHA is not loaded. Please refresh the page and try again.');
+        return;
+      }
+      try {
+        recaptchaToken = await executeRecaptcha('submit_question');
+      } catch (err) {
+        console.error('reCAPTCHA execution error:', err);
+        setError('reCAPTCHA verification failed. Please try again.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -87,14 +97,12 @@ export default function QuestionForm({
         } else {
           setError(data.error || 'Failed to submit question. Please try again.');
         }
-        recaptchaRef.current?.reset();
         setLoading(false);
         return;
       }
 
       setSuccess(true);
       setQuestion('');
-      recaptchaRef.current?.reset();
 
       if (onQuestionSubmitted) {
         onQuestionSubmitted();
@@ -106,7 +114,6 @@ export default function QuestionForm({
       }, 1000);
     } catch (err) {
       setError('An error occurred. Please try again.');
-      recaptchaRef.current?.reset();
     } finally {
       setLoading(false);
     }
@@ -187,15 +194,7 @@ export default function QuestionForm({
           inputProps={{ maxLength: 500 }}
         />
 
-        {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
-          <Box sx={{ mb: 2 }}>
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-              theme="light"
-            />
-          </Box>
-        )}
+        {/* reCAPTCHA v3 is invisible - no UI needed */}
 
         <Button
           type="submit"

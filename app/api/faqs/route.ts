@@ -103,12 +103,26 @@ export async function POST(request: NextRequest) {
       );
 
       const recaptchaData = await recaptchaResponse.json();
+      
       if (!recaptchaData.success) {
         console.error('reCAPTCHA verification failed:', recaptchaData);
         return NextResponse.json(
           { error: 'reCAPTCHA verification failed. Please try again.' },
           { status: 400 }
         );
+      }
+
+      // For reCAPTCHA v3, check the score (0.0 to 1.0)
+      // Score > 0.5 is typically considered human, < 0.5 is bot
+      if (recaptchaData.score !== undefined) {
+        const score = recaptchaData.score;
+        if (score < 0.5) {
+          console.error('reCAPTCHA score too low:', score);
+          return NextResponse.json(
+            { error: 'reCAPTCHA verification failed. Please try again.' },
+            { status: 400 }
+          );
+        }
       }
     }
     // If RECAPTCHA_SECRET_KEY is not set, skip reCAPTCHA verification
