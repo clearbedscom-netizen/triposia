@@ -45,7 +45,10 @@ export default function QuestionForm({
     setSuccess(false);
 
     if (!session) {
-      setError('Please sign in to ask a question');
+      setError('Please sign in to ask a question. Redirecting to sign-in...');
+      setTimeout(() => {
+        signIn('google', { callbackUrl: pageUrl });
+      }, 1500);
       return;
     }
 
