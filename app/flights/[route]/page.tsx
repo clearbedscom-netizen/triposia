@@ -720,11 +720,10 @@ export default async function FlightRoutePage({ params }: PageProps) {
           .map((faq) => {
             // Get the best answer for schema
             const bestAnswer =
-              faq.answers.find((a) => a.isExpertAnswer && a.isApproved !== false) ||
+              faq.answers.find((a) => a.isExpertAnswer) ||
               faq.answers
-                .filter((a) => a.isApproved !== false)
                 .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
-              faq.answers.find((a) => a.isApproved !== false);
+              faq.answers[0];
 
             return {
               question: faq.question,

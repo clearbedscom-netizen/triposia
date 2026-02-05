@@ -22,13 +22,12 @@ export default async function FAQServerSection({
     includeUnanswered: false, // Only show answered questions for SEO
   });
 
-  // Filter to only FAQs with approved answers
+  // Filter to only FAQs with answers
   const answeredFAQs = faqs.filter(
     (faq) =>
       faq.isAnswered &&
       faq.answers &&
-      faq.answers.length > 0 &&
-      faq.answers.some((answer) => answer.isApproved !== false)
+      faq.answers.length > 0
   );
 
   if (answeredFAQs.length === 0) {
@@ -50,11 +49,10 @@ export default async function FAQServerSection({
         {answeredFAQs.map((faq) => {
           // Get the best answer (expert answer first, then most helpful, then first)
           const bestAnswer =
-            faq.answers.find((a) => a.isExpertAnswer && a.isApproved !== false) ||
+            faq.answers.find((a) => a.isExpertAnswer) ||
             faq.answers
-              .filter((a) => a.isApproved !== false)
               .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
-            faq.answers.find((a) => a.isApproved !== false);
+            faq.answers[0];
 
           if (!bestAnswer) return null;
 
@@ -104,9 +102,9 @@ export default async function FAQServerSection({
                     >
                       Expert Answer
                     </Typography>
-                    {bestAnswer.authorName && (
+                    {bestAnswer.userName && (
                       <Typography variant="caption" color="text.secondary">
-                        by {bestAnswer.authorName}
+                        by {bestAnswer.userName}
                       </Typography>
                     )}
                   </Box>
