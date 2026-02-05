@@ -118,6 +118,14 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET || 'triposia-nextauth-secret-2024',
+  secret: (() => {
+    const secret = process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('⚠️  WARNING: NEXTAUTH_SECRET is not set! Using fallback secret. This will cause session errors in production.');
+      console.error('⚠️  Please set NEXTAUTH_SECRET in your environment variables.');
+      return 'triposia-nextauth-secret-2024-fallback';
+    }
+    return secret;
+  })(),
 };
 
