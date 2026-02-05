@@ -152,6 +152,7 @@ export default function QuestionForm({
   }
 
   return (
+    <>
     <Paper sx={{ p: 3, mb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <QuestionAnswerIcon color="primary" />

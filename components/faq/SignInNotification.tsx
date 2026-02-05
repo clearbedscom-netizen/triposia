@@ -57,6 +57,7 @@ export default function SignInNotification() {
   }
 
   return (
+    <>
     <Collapse in={show}>
       <Box
         sx={{

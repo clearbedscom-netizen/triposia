@@ -73,12 +73,9 @@ export default function AuthModal({
     
     try {
       const url = callbackUrl || window.location.pathname;
-      await signIn('google', { callbackUrl: url, redirect: false });
-      // Close modal on success
-      setTimeout(() => {
-        onClose();
-        router.refresh();
-      }, 500);
+      // Google OAuth requires a full page redirect
+      // The modal will be closed when the page redirects
+      await signIn('google', { callbackUrl: url });
     } catch (err) {
       setError('Failed to sign in with Google. Please try again.');
       setLoading(false);
