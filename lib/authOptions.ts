@@ -6,12 +6,14 @@ import { findUserByEmail, createUser, findUserByProviderId } from '@/lib/users';
 import { comparePassword } from '@/lib/auth';
 import clientPromise from '@/lib/mongodb';
 
-export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise) as any,
-  providers: [
+// Only include Google provider if credentials are configured
+const providers: NextAuthOptions['providers'] = [];
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
           prompt: 'consent',
@@ -19,7 +21,16 @@ export const authOptions: NextAuthOptions = {
           response_type: 'code',
         },
       },
-    }),
+    })
+  );
+} else {
+  console.warn('⚠️  Google OAuth not configured: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required');
+}
+
+export const authOptions: NextAuthOptions = {
+  adapter: MongoDBAdapter(clientPromise) as any,
+  providers: [
+    ...providers,
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
