@@ -10,6 +10,7 @@ import {
   IconButton,
   Link as MuiLink,
   Collapse,
+  Typography,
 } from '@mui/material';
 import {
   Close as CloseIcon,
