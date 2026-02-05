@@ -8,6 +8,7 @@ import { evaluateAirportPageQuality } from '@/lib/pageQuality';
 import { getRelatedRoutes, getRelatedAirlines, getRelatedBlogs, formatRouteAnchor, formatAirlineAnchor, formatBlogAnchor, LINK_LIMITS } from '@/lib/linking';
 import RelatedPages from '@/components/ui/RelatedPages';
 import { generateAirportFAQs } from '@/lib/faqGenerators';
+import { stripHtml } from '@/lib/utils/html';
 import { getAirportImageUrl } from '@/lib/imagekit';
 import { formatAirportName } from '@/lib/formatting';
 import JsonLd from '@/components/seo/JsonLd';
@@ -166,16 +167,23 @@ export default async function AirportPage({ params }: PageProps) {
           .filter((faq) => faq.isAnswered && faq.answers && faq.answers.length > 0)
           .map((faq) => {
             const bestAnswer =
-              faq.answers.find((a) => a.isExpertAnswer) ||
+              faq.answers.find((a) => a.isExpertAnswer || a.author) ||
               faq.answers
                 .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
               faq.answers[0];
+            
+            if (!bestAnswer) return null;
+
+            // Get answer content (support both old and new format)
+            const answerContent = bestAnswer.answer || bestAnswer.content || '';
+            const answerText = stripHtml(answerContent);
+
             return {
               question: faq.question,
-              answer: bestAnswer?.content || '',
+              answer: answerText,
             };
           })
-          .filter((faq) => faq.answer),
+          .filter((faq): faq is { question: string; answer: string } => faq !== null && !!faq.answer),
         `Frequently Asked Questions about ${iata} Airport`
       )
     : null;

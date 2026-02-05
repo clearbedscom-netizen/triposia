@@ -1,6 +1,7 @@
-import { Box, Typography, Paper, Divider } from '@mui/material';
+import { Box, Typography, Paper, Divider, Chip } from '@mui/material';
 import { findFAQsByPage } from '@/lib/faqs';
 import type { FAQ } from '@/lib/faqs';
+import { stripHtml } from '@/lib/utils/html';
 
 interface FAQServerSectionProps {
   pageType: FAQ['pageType'];
@@ -49,12 +50,22 @@ export default async function FAQServerSection({
         {answeredFAQs.map((faq) => {
           // Get the best answer (expert answer first, then most helpful, then first)
           const bestAnswer =
-            faq.answers.find((a) => a.isExpertAnswer) ||
+            faq.answers.find((a) => a.isExpertAnswer || a.author) ||
             faq.answers
               .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
             faq.answers[0];
 
           if (!bestAnswer) return null;
+
+          // Get answer content (support both old and new format)
+          const answerContent = bestAnswer.answer || bestAnswer.content || '';
+          const answerText = stripHtml(answerContent);
+          
+          // Get author information
+          const authorName = bestAnswer.author?.name || bestAnswer.userName || 'Expert';
+          const authorBio = bestAnswer.author?.bio;
+          const authorDesignation = bestAnswer.author?.designation;
+          const isExpert = bestAnswer.isExpertAnswer || !!bestAnswer.author;
 
           return (
             <Paper
@@ -78,33 +89,58 @@ export default async function FAQServerSection({
                 itemType="https://schema.org/Answer"
                 sx={{ mt: 2 }}
               >
-              <Typography
-                variant="body1"
-                component="p"
-                sx={{ mb: 2, color: 'text.secondary', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}
-                itemProp="text"
-              >
-                {bestAnswer.content}
-              </Typography>
+                {/* Answer content with HTML support */}
+                <Box
+                  component="div"
+                  sx={{ 
+                    mb: 2, 
+                    color: 'text.secondary', 
+                    lineHeight: 1.8,
+                    '& p': { mb: 1.5 },
+                    '& strong, & b': { fontWeight: 600 },
+                    '& em, & i': { fontStyle: 'italic' },
+                    '& ul, & ol': { pl: 3, mb: 1.5 },
+                    '& li': { mb: 0.5 },
+                  }}
+                  itemProp="text"
+                  dangerouslySetInnerHTML={{ __html: answerContent }}
+                />
 
-                {bestAnswer.isExpertAnswer && (
-                  <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        px: 1.5,
-                        py: 0.5,
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        borderRadius: 1,
-                        fontWeight: 600,
-                      }}
-                    >
-                      Expert Answer
-                    </Typography>
-                    {bestAnswer.userName && (
-                      <Typography variant="caption" color="text.secondary">
-                        by {bestAnswer.userName}
+                {/* Author information for SEO */}
+                {isExpert && (
+                  <Box 
+                    sx={{ mt: 2 }}
+                    itemProp="author"
+                    itemScope
+                    itemType="https://schema.org/Person"
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Chip
+                        label="Expert Answer"
+                        size="small"
+                        sx={{
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          fontWeight: 600,
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary" itemProp="name">
+                        by {authorName}
+                      </Typography>
+                      {authorDesignation && (
+                        <Typography variant="caption" color="text.secondary">
+                          • {authorDesignation}
+                        </Typography>
+                      )}
+                    </Box>
+                    {authorBio && (
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary" 
+                        sx={{ display: 'block', mt: 0.5 }}
+                        itemProp="description"
+                      >
+                        {authorBio}
                       </Typography>
                     )}
                   </Box>

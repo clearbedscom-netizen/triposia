@@ -15,16 +15,36 @@ export interface FAQComment {
   updatedAt?: Date;
 }
 
+export interface Author {
+  _id?: string;
+  name: string;
+  slug?: string;
+  bio?: string;
+  profile_image?: string;
+  designation?: string;
+  current_company?: string;
+  previous_experience?: string;
+  education?: string;
+  expertise_topics?: string[];
+  social_links?: {
+    linkedin?: string;
+    twitter?: string;
+    website?: string;
+  };
+}
+
 export interface FAQAnswer {
   _id?: ObjectId;
   userId: string; // Admin or expert user ID
-  userName: string;
+  userName?: string; // For backward compatibility
   userImage?: string;
-  content: string;
-  isExpertAnswer: boolean; // true for admin/expert, false for regular users
+  content?: string; // For backward compatibility
+  answer?: string; // HTML content (new format)
+  author?: Author; // Author object (new format)
+  isExpertAnswer?: boolean; // true for admin/expert, false for regular users
   createdAt: Date;
   updatedAt?: Date;
-  comments: FAQComment[];
+  comments?: FAQComment[];
   helpfulCount?: number; // Number of users who found this helpful
   helpfulUsers?: string[]; // Array of user IDs who marked as helpful
 }

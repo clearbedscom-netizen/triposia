@@ -306,24 +306,29 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
                     >
                       <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
                         <Avatar
-                          src={answer.userImage}
-                          alt={answer.userName}
+                          src={answer.author?.profile_image || answer.userImage}
+                          alt={answer.author?.name || answer.userName || 'Expert'}
                           sx={{ width: 32, height: 32 }}
                         >
-                          {answer.userName.charAt(0).toUpperCase()}
+                          {(answer.author?.name || answer.userName || 'E').charAt(0).toUpperCase()}
                         </Avatar>
                         <Box sx={{ flex: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                             <Typography variant="subtitle2" fontWeight={600}>
-                              {answer.userName}
+                              {answer.author?.name || answer.userName || 'Expert'}
                             </Typography>
-                            {answer.isExpertAnswer && (
+                            {(answer.isExpertAnswer || answer.author) && (
                               <Chip
                                 icon={<VerifiedUserIcon />}
                                 label="Expert"
                                 size="small"
                                 color="primary"
                               />
+                            )}
+                            {answer.author?.designation && (
+                              <Typography variant="caption" color="text.secondary">
+                                • {answer.author.designation}
+                              </Typography>
                             )}
                           </Box>
                           <Typography variant="caption" color="text.secondary">
@@ -335,12 +340,30 @@ export default function QASection({ pageType, pageSlug, pageUrl }: QASectionProp
                               }
                             })()}
                           </Typography>
+                          {answer.author?.bio && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                              {answer.author.bio}
+                            </Typography>
+                          )}
                         </Box>
                       </Box>
 
-                      <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>
-                        {answer.content}
-                      </Typography>
+                      {/* Answer content - support both HTML and plain text */}
+                      <Box
+                        component="div"
+                        sx={{ 
+                          mb: 1,
+                          '& p': { mb: 1.5 },
+                          '& strong, & b': { fontWeight: 600 },
+                          '& em, & i': { fontStyle: 'italic' },
+                          '& ul, & ol': { pl: 3, mb: 1.5 },
+                          '& li': { mb: 0.5 },
+                          '& br': { display: 'block', content: '""', marginBottom: '0.5em' },
+                        }}
+                        dangerouslySetInnerHTML={{ 
+                          __html: answer.answer || answer.content || '' 
+                        }}
+                      />
 
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
                         <Button

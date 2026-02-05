@@ -38,6 +38,7 @@ import { getAirlinesForRoute, formatAirportAnchor, formatAirlineAnchor, getRelat
 import RelatedPages from '@/components/ui/RelatedPages';
 import { formatAirportDisplay, formatAirportName } from '@/lib/formatting';
 import { generateRouteFAQs, generateAirlineRouteFAQs, generateAirlineAirportFAQs } from '@/lib/faqGenerators';
+import { stripHtml } from '@/lib/utils/html';
 import { getSiteUrl } from '@/lib/company';
 import { generateRouteInsights, shouldRenderInsights } from '@/lib/contentInsights';
 import { validateIntroText } from '@/lib/introValidation';
@@ -1437,16 +1438,23 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           .filter((faq) => faq.isAnswered && faq.answers && faq.answers.length > 0)
           .map((faq) => {
             const bestAnswer =
-              faq.answers.find((a) => a.isExpertAnswer) ||
+              faq.answers.find((a) => a.isExpertAnswer || a.author) ||
               faq.answers
                 .sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0))[0] ||
               faq.answers[0];
+            
+            if (!bestAnswer) return null;
+
+            // Get answer content (support both old and new format)
+            const answerContent = bestAnswer.answer || bestAnswer.content || '';
+            const answerText = stripHtml(answerContent);
+
             return {
               question: faq.question,
-              answer: bestAnswer?.content || '',
+              answer: answerText,
             };
           })
-          .filter((faq) => faq.answer),
+          .filter((faq): faq is { question: string; answer: string } => faq !== null && !!faq.answer),
         `Frequently Asked Questions about ${airline.name} flights from ${originDisplay} to ${destinationDisplay}`
       )
     : null;
