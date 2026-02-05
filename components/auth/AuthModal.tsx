@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -43,6 +43,7 @@ export default function AuthModal({
   callbackUrl 
 }: AuthModalProps) {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [tab, setTab] = useState<'signin' | 'register'>(initialTab);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -99,10 +100,13 @@ export default function AuthModal({
         setLoading(false);
       } else if (result?.ok) {
         setSuccess(true);
+        // Update session immediately
+        await updateSession();
+        // Close modal and refresh
         setTimeout(() => {
           onClose();
           router.refresh();
-        }, 1000);
+        }, 500);
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -150,8 +154,8 @@ export default function AuthModal({
 
       setSuccess(true);
       
-      // Auto sign in after successful registration
-      setTimeout(async () => {
+      // Auto sign in immediately after successful registration
+      try {
         const result = await signIn('credentials', {
           email: registerEmail,
           password: registerPassword,
@@ -159,14 +163,32 @@ export default function AuthModal({
         });
 
         if (result?.ok) {
+          // Update session immediately
+          await updateSession();
+          
+          // Close modal
           onClose();
+          
+          // Refresh router to update all components
           router.refresh();
+          
+          // Clear form fields
+          setRegisterName('');
+          setRegisterEmail('');
+          setRegisterPassword('');
+          setConfirmPassword('');
+          setLoading(false);
         } else {
-          setError('Registration successful! Please sign in.');
+          setError(result?.error || 'Registration successful! Please sign in.');
           setLoading(false);
           setTab('signin');
         }
-      }, 1000);
+      } catch (signInError) {
+        console.error('Auto sign-in error:', signInError);
+        setError('Registration successful! Please sign in manually.');
+        setLoading(false);
+        setTab('signin');
+      }
     } catch (err) {
       setError('An error occurred. Please try again.');
       setLoading(false);
