@@ -79,16 +79,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify reCAPTCHA
-    if (!recaptchaToken) {
-      return NextResponse.json(
-        { error: 'reCAPTCHA verification required' },
-        { status: 400 }
-      );
-    }
-
+    // Verify reCAPTCHA (only if configured)
     const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
     if (recaptchaSecret) {
+      // reCAPTCHA is configured, so token is required
+      if (!recaptchaToken) {
+        return NextResponse.json(
+          { error: 'reCAPTCHA verification required' },
+          { status: 400 }
+        );
+      }
+
+      // Verify the token with Google
       const recaptchaResponse = await fetch(
         `https://www.google.com/recaptcha/api/siteverify`,
         {
@@ -102,12 +104,14 @@ export async function POST(request: NextRequest) {
 
       const recaptchaData = await recaptchaResponse.json();
       if (!recaptchaData.success) {
+        console.error('reCAPTCHA verification failed:', recaptchaData);
         return NextResponse.json(
-          { error: 'reCAPTCHA verification failed' },
+          { error: 'reCAPTCHA verification failed. Please try again.' },
           { status: 400 }
         );
       }
     }
+    // If RECAPTCHA_SECRET_KEY is not set, skip reCAPTCHA verification
 
     // Create FAQ
     const faq = await createFAQ({
