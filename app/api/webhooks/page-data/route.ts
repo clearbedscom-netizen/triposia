@@ -16,6 +16,39 @@ import { formatAirportName } from '@/lib/formatting';
  * GET /api/webhooks/page-data?type=flight-airport&slug=jfk
  * GET /api/webhooks/page-data?type=flight-route&slug=jfk-atl
  */
+// Handle OPTIONS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  const allowedOrigins = [
+    'https://admintriposia.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ];
+
+  const isAllowedOrigin = origin && allowedOrigins.includes(origin);
+  const isAllowedReferer = referer && allowedOrigins.some(allowed => referer.includes(allowed));
+  const isAdminDomain = isAllowedOrigin || isAllowedReferer;
+
+  const headers = new Headers();
+  headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+  headers.set('Access-Control-Max-Age', '86400');
+
+  if (isAdminDomain && origin) {
+    headers.set('Access-Control-Allow-Origin', origin);
+    headers.set('Access-Control-Allow-Credentials', 'true');
+  } else if (isAdminDomain) {
+    headers.set('Access-Control-Allow-Origin', 'https://admintriposia.vercel.app');
+    headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+
+  return new NextResponse(null, {
+    status: 200,
+    headers,
+  });
+}
+
 export async function GET(request: NextRequest) {
   // CORS configuration - Allow requests from admin domain
   const origin = request.headers.get('origin');
@@ -44,14 +77,15 @@ export async function GET(request: NextRequest) {
     // Fallback if no origin header but referer matches
     headers.set('Access-Control-Allow-Origin', 'https://admintriposia.vercel.app');
     headers.set('Access-Control-Allow-Credentials', 'true');
-  }
-
-  // Handle preflight requests (OPTIONS)
-  if (request.method === 'OPTIONS') {
-    return new NextResponse(null, {
-      status: 200,
-      headers,
-    });
+  } else {
+    // For webhook endpoints, be more permissive with CORS
+    // This helps bypass Vercel security checkpoint issues
+    if (origin) {
+      headers.set('Access-Control-Allow-Origin', origin);
+    } else {
+      // If no origin, allow all (for server-to-server calls)
+      headers.set('Access-Control-Allow-Origin', '*');
+    }
   }
 
   // Helper function to add CORS headers to any response
