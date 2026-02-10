@@ -182,7 +182,8 @@ export async function generateAirportFAQs(
     });
   }
 
-  return faqs;
+  // Limit to 5-7 FAQs for operational focus
+  return faqs.slice(0, 7);
 }
 
 /**
@@ -379,7 +380,8 @@ export async function generateAirlineAirportFAQs(
     answer: `The airline code for ${airlineName} is ${airline.iata || airline.code || 'N/A'}${airline.iata && airline.code && airline.iata !== airline.code ? ` (IATA: ${airline.iata}, Code: ${airline.code})` : ''}${airline.icao ? ` (ICAO: ${airline.icao})` : ''}.`,
   });
 
-  return faqs;
+  // Limit to 5-7 FAQs for operational focus
+  return faqs.slice(0, 7);
 }
 
 /**
@@ -447,7 +449,8 @@ export function generateAirlineFAQs(
     });
   }
 
-  return faqs;
+  // Limit to 5-7 FAQs for operational focus
+  return faqs.slice(0, 7);
 }
 
 /**
@@ -703,6 +706,7 @@ export async function generateAirlineRouteFAQs(
     });
   }
 
-  return faqs;
+  // Limit to 5-7 FAQs for operational focus
+  return faqs.slice(0, 7);
 }
 

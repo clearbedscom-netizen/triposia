@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { Container, Typography, Box, Grid, Paper, List, ListItem, ListItemText, Avatar, Chip, Divider, Link as MuiLink } from '@mui/material';
-import { getAirline, getAirlineRoutes } from '@/lib/queries';
+import { getAirline, getAirlineRoutes, getAirportSummary } from '@/lib/queries';
 import { generateMetadata as genMeta, generateBreadcrumbList, generateAirlineSchema } from '@/lib/seo';
 import { getRelatedAirports, formatRouteAnchor, formatAirportAnchor, getRelatedAirlinesByCountry } from '@/lib/linking';
 import RelatedPages from '@/components/ui/RelatedPages';
@@ -12,6 +12,7 @@ import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import StatCard from '@/components/ui/StatCard';
 import AnswerSummary from '@/components/ui/AnswerSummary';
 import ReliabilityScore from '@/components/ui/ReliabilityScore';
+import AirlineOperationsSummary from '@/components/airlines/AirlineOperationsSummary';
 import FactBlock from '@/components/ui/FactBlock';
 import EeatSignals from '@/components/ui/EeatSignals';
 import DataTransparency from '@/components/ui/DataTransparency';
@@ -37,6 +38,7 @@ import AirplanemodeActiveIcon from '@mui/icons-material/AirplanemodeActive';
 import SafetyCheckIcon from '@mui/icons-material/SafetyCheck';
 import LuggageIcon from '@mui/icons-material/Luggage';
 import { optimizeTitle, optimizeDescription } from '@/lib/metadata-utils';
+import { getEditorialPage, shouldUseOldModel } from '@/lib/editorialPages';
 
 interface PageProps {
   params: {
@@ -82,6 +84,11 @@ export default async function AirlinePage({ params }: PageProps) {
       </Container>
     );
   }
+
+  // Check if page exists in pages_editorial collection
+  const slug = `airlines/${code.toLowerCase()}`;
+  const editorialPage = await getEditorialPage(slug);
+  const useOldModel = await shouldUseOldModel(slug);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://triposia.com';
   const breadcrumbData = generateBreadcrumbList([
@@ -146,32 +153,22 @@ export default async function AirlinePage({ params }: PageProps) {
     ? await getRelatedAirlinesByCountry(airline.country, code, 6)
     : [];
 
-  // Generate comprehensive answer-first summary
-  let answerSummary = `${airline.name}${airline.short_name ? ` (${airline.short_name})` : ''} (${code})`;
-  if (airline.country) answerSummary += ` is based in ${airline.country}`;
-  if (airline.city && airline.state) answerSummary += `, ${airline.city}, ${airline.state}`;
-  answerSummary += `. `;
-  
-  if (routes.length > 0) {
-    answerSummary += `Operates flights to ${routes.length} destination${routes.length !== 1 ? 's' : ''}. `;
-  }
-  
-  if (airline.fleet_size || airline.total_aircrafts) {
-    const fleetSize = airline.fleet_size || airline.total_aircrafts || 0;
-    answerSummary += `Fleet size: ${fleetSize} aircraft${fleetSize !== 1 ? 's' : ''}. `;
-  }
-  
-  if (airline.average_fleet_age) {
-    answerSummary += `Average fleet age: ${airline.average_fleet_age} years. `;
-  }
-  
-  if (airline.rating_skytrax_stars) {
-    answerSummary += `Skytrax rating: ${airline.rating_skytrax_stars} star${airline.rating_skytrax_stars !== 1 ? 's' : ''}. `;
-  }
-  
-  if (airline.reliability_score) {
-    answerSummary += `Reliability score: ${airline.reliability_score}/10.`;
-  }
+  // Calculate countries served from routes
+  const destinationIatas = Array.from(new Set(routes.map(r => r.destination_iata)));
+  const destinationAirports = await Promise.all(
+    destinationIatas.slice(0, 100).map(dest => getAirportSummary(dest))
+  );
+  const countriesServed = new Set(
+    destinationAirports
+      .map(a => a?.country)
+      .filter(Boolean)
+  );
+  const countryCount = countriesServed.size || 1;
+
+  // Calculate hub count
+  const hubCount = airline.hubs && airline.hubs.length > 0 
+    ? airline.hubs.length 
+    : hubAirportsArray.filter(a => a.shouldIndex).length || 1;
 
   // Generate FAQs
   const faqs = generateAirlineFAQs(airline, routes, code);
@@ -225,24 +222,59 @@ export default async function AirlinePage({ params }: PageProps) {
           </Box>
         </Box>
 
-      <AnswerSummary>
-        {answerSummary}
-      </AnswerSummary>
-      </Box>
-
-      {/* Overview Section */}
-      {airline.overview && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
-            About {airline.name}
-          </Typography>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="body1" sx={{ lineHeight: 1.8, textAlign: 'left' }}>
-              {airline.overview}
-            </Typography>
-          </Paper>
-        </Box>
+      {/* Conditional rendering: Old model if in pages_editorial, else new operational summary */}
+      {useOldModel ? (
+        <>
+          <AnswerSummary>
+            {editorialPage?.content || (() => {
+              let answerSummary = `${airline.name}${airline.short_name ? ` (${airline.short_name})` : ''} (${code})`;
+              if (airline.country) answerSummary += ` is based in ${airline.country}`;
+              if (airline.city && airline.state) answerSummary += `, ${airline.city}, ${airline.state}`;
+              answerSummary += `. `;
+              if (routes.length > 0) {
+                answerSummary += `Operates flights to ${routes.length} destination${routes.length !== 1 ? 's' : ''}. `;
+              }
+              if (airline.fleet_size || airline.total_aircrafts) {
+                const fleetSize = airline.fleet_size || airline.total_aircrafts || 0;
+                answerSummary += `Fleet size: ${fleetSize} aircraft${fleetSize !== 1 ? 's' : ''}. `;
+              }
+              if (airline.average_fleet_age) {
+                answerSummary += `Average fleet age: ${airline.average_fleet_age} years. `;
+              }
+              if (airline.rating_skytrax_stars) {
+                answerSummary += `Skytrax rating: ${airline.rating_skytrax_stars} star${airline.rating_skytrax_stars !== 1 ? 's' : ''}. `;
+              }
+              if (airline.reliability_score) {
+                answerSummary += `Reliability score: ${airline.reliability_score}/10.`;
+              }
+              return answerSummary;
+            })()}
+          </AnswerSummary>
+          
+          {/* Overview Section - Only show if in editorial or airline has overview */}
+          {(editorialPage?.overview || airline.overview) && (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
+                About {airline.name}
+              </Typography>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="body1" sx={{ lineHeight: 1.8, textAlign: 'left' }}>
+                  {editorialPage?.overview || airline.overview}
+                </Typography>
+              </Paper>
+            </Box>
+          )}
+        </>
+      ) : (
+        <AirlineOperationsSummary
+          airlineName={airline.name}
+          countryCount={countryCount}
+          hubCount={hubCount}
+          totalRoutes={routes.length}
+          fleetSize={airline.fleet_size || airline.total_aircrafts}
+        />
       )}
+      </Box>
 
       {/* Key Statistics Grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -910,19 +942,6 @@ export default async function AirlinePage({ params }: PageProps) {
         </Box>
       )}
 
-      {/* Customer Reviews */}
-      {airline.review_sentiment && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
-            Customer Sentiment
-          </Typography>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="body1" sx={{ lineHeight: 1.8, textAlign: 'left' }}>
-              {airline.review_sentiment}
-            </Typography>
-          </Paper>
-        </Box>
-      )}
 
       {/* Comprehensive Airline Information */}
       <FactBlock

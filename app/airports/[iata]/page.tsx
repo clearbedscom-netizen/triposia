@@ -18,6 +18,8 @@ import PoiSection from '@/components/poi/PoiSection';
 import AirportMap from '@/components/maps/AirportMap';
 import AirportTabs from '@/components/airport/AirportTabs';
 import WeatherSection from '@/components/travel/WeatherSection';
+import AirportOperationsOverview from '@/components/airports/AirportOperationsOverview';
+import { getEditorialPage, shouldUseOldModel } from '@/lib/editorialPages';
 import BookingInsightsSection from '@/components/travel/BookingInsightsSection';
 import PriceTrendsSection from '@/components/travel/PriceTrendsSection';
 import Link from 'next/link';
@@ -196,6 +198,11 @@ export default async function AirportPage({ params }: PageProps) {
   const relatedBlogs = await getRelatedBlogs('airport', iata, LINK_LIMITS.airport.blogs);
   const faqs = await generateAirportFAQs(airport, departures, arrivals, routesFrom.length);
 
+  // Check if page exists in pages_editorial collection
+  const slug = `airports/${iata.toLowerCase()}`;
+  const editorialPage = await getEditorialPage(slug);
+  const useOldModel = await shouldUseOldModel(slug);
+
   // Get top destinations with coordinates for the map
   const topDestinationRoutes = routesFrom
     .sort((a, b) => {
@@ -275,14 +282,30 @@ export default async function AirportPage({ params }: PageProps) {
             )}
           </Box>
         </Box>
-        
-        {/* Airport Description */}
-        {airportDetails?.description && (
-          <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.8, maxWidth: '900px', textAlign: 'left' }}>
-            {airportDetails.description}
-          </Typography>
-        )}
       </Box>
+
+      {/* Conditional rendering: Old model if in pages_editorial, else new operational overview */}
+      {useOldModel ? (
+        <>
+          {/* Airport Description - Only show if in editorial or airport has description */}
+          {(editorialPage?.description || airportDetails?.description) && (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.8, maxWidth: '900px', textAlign: 'left' }}>
+                {editorialPage?.description || airportDetails?.description}
+              </Typography>
+            </Box>
+          )}
+        </>
+      ) : (
+        <AirportOperationsOverview
+          airportName={airportDetails?.name || airport.name || airportDisplay}
+          iata={iata}
+          destinationCount={airport.destinations_count}
+          airlineCount={airlinesWithFlights.length}
+          peakHours={airport.peak_departure_hours}
+          isPrimarilyDomestic={domesticIntl.domestic > domesticIntl.international}
+        />
+      )}
 
       {/* 2. Airport Stats Grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

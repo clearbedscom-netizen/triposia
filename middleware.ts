@@ -215,6 +215,19 @@ function getRateLimitKey(request: NextRequest): string {
   return ip;
 }
 
+function isAdminDomain(request: NextRequest): boolean {
+  const referer = request.headers.get('referer') || '';
+  const origin = request.headers.get('origin') || '';
+  const host = request.headers.get('host') || '';
+  
+  // Check if request is from admin domain
+  return (
+    referer.includes('admintriposia.vercel.app') ||
+    origin.includes('admintriposia.vercel.app') ||
+    host.includes('admintriposia.vercel.app')
+  );
+}
+
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
   const record = requestCounts.get(key);
@@ -250,10 +263,11 @@ export function middleware(request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const pathname = request.nextUrl.pathname;
   
-  // Skip middleware for static files, API routes (except admin), and Next.js internals
+  // Skip middleware for static files, API routes (except admin), webhooks, and Next.js internals
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/webhooks') ||
     pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|css|js|woff|woff2|ttf|eot)$/)
   ) {
     return NextResponse.next();
@@ -271,8 +285,8 @@ export function middleware(request: NextRequest) {
     });
   }
   
-  // Rate limiting (skip for allowed bots and admin routes)
-  if (!isAllowedBot(userAgent) && !pathname.startsWith('/admin')) {
+  // Rate limiting (skip for allowed bots, admin routes, and admin domain)
+  if (!isAllowedBot(userAgent) && !pathname.startsWith('/admin') && !isAdminDomain(request)) {
     const rateLimitKey = getRateLimitKey(request);
     if (!checkRateLimit(rateLimitKey)) {
       return new NextResponse('Too Many Requests', {

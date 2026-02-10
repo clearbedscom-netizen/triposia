@@ -26,6 +26,7 @@ import StatCard from '@/components/ui/StatCard';
 import RouteHeader from '@/components/flights/RouteHeader';
 import RouteInfoCards from '@/components/flights/RouteInfoCards';
 import RouteTruthBlock from '@/components/flights/RouteTruthBlock';
+import { getEditorialPage, shouldUseOldModel } from '@/lib/editorialPages';
 import FlightCalendarWrapper from '@/components/flights/FlightCalendarWrapperLazy';
 import PriceStatistics from '@/components/flights/PriceStatisticsLazy';
 import PoiSection from '@/components/poi/PoiSection';
@@ -1469,6 +1470,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     `Frequently Asked Questions about ${airline.name} flights from ${originDisplay} to ${destinationDisplay}`
   );
 
+  // Check if page exists in pages_editorial collection
+  const slug = `airlines/${code.toLowerCase()}/${routeSlug}`;
+  const editorialPage = await getEditorialPage(slug);
+  const useOldModel = await shouldUseOldModel(slug);
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <PageViewTracker
@@ -1548,17 +1554,35 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         return null;
       })()}
 
-      {/* 1. RouteTruthBlock - FIRST visible content */}
-      <RouteTruthBlock
-        fromCity={originAirport?.city || origin}
-        fromIata={origin}
-        toCity={route.destination_city || destinationAirport?.city || destination}
-        toIata={destination}
-        airlineCount={1}
-        flightsPerDay={route.flights_per_day || flights.length}
-        averageDuration={averageDuration !== 'Data not available' ? averageDuration : undefined}
-        distance={formattedDistance}
-      />
+      {/* 1. Conditional rendering: Old RouteHeader if in pages_editorial, else new RouteTruthBlock */}
+      {useOldModel ? (
+        <RouteHeader
+          origin={origin}
+          destination={destination}
+          originCity={originAirport?.city}
+          originCountry={originAirport?.country}
+          destinationCity={route.destination_city || destinationAirport?.city}
+          destinationCountry={destinationAirport?.country}
+          originDisplay={originDisplay}
+          destinationDisplay={destinationDisplay}
+          distance={formattedDistance}
+          duration={averageDuration !== 'Data not available' ? averageDuration : undefined}
+          airlinesCount={1}
+          flightsPerDay={route.flights_per_day || flights.length.toString()}
+          airlineName={airline.name}
+        />
+      ) : (
+        <RouteTruthBlock
+          fromCity={originAirport?.city || origin}
+          fromIata={origin}
+          toCity={route.destination_city || destinationAirport?.city || destination}
+          toIata={destination}
+          airlineCount={1}
+          flightsPerDay={route.flights_per_day || flights.length}
+          averageDuration={averageDuration !== 'Data not available' ? averageDuration : undefined}
+          distance={formattedDistance}
+        />
+      )}
 
       {/* 2. Distance & Duration (numeric) */}
       <Box sx={{ mb: 4 }}>
@@ -1660,27 +1684,6 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                 </Grid>
               )}
             </Grid>
-          </Paper>
-        </Box>
-      )}
-
-      {/* 6. Route FAQs (max 5–7) */}
-      {routeFAQs.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
-            Frequently Asked Questions
-          </Typography>
-          <Paper sx={{ p: 3 }}>
-            {routeFAQs.map((faq, idx) => (
-              <Box key={idx} sx={{ mb: idx < routeFAQs.length - 1 ? 3 : 0 }}>
-                <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
-                  {faq.question}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {faq.answer}
-                </Typography>
-              </Box>
-            ))}
           </Paper>
         </Box>
       )}
@@ -2445,6 +2448,27 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           pageUrl={`/airlines/${code.toLowerCase()}/${routeSlug}`}
         />
       </Box>
+
+      {/* Route FAQs (max 5–7) - Moved to bottom */}
+      {routeFAQs.length > 0 && (
+        <Box sx={{ mt: 6, mb: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+            Frequently Asked Questions
+          </Typography>
+          <Paper sx={{ p: 3 }}>
+            {routeFAQs.map((faq, idx) => (
+              <Box key={idx} sx={{ mb: idx < routeFAQs.length - 1 ? 3 : 0 }}>
+                <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
+                  {faq.question}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {faq.answer}
+                </Typography>
+              </Box>
+            ))}
+          </Paper>
+        </Box>
+      )}
 
       {/* Footer Note */}
       <Box sx={{ mt: 6, pt: 4, borderTop: 1, borderColor: 'divider' }}>
