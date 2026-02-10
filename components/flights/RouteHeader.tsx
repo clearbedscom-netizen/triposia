@@ -46,10 +46,10 @@ export default function RouteHeader({
     ? `${airlineName} flights from ${originDisplay} to ${destinationDisplay}`
     : `Direct (non-stop) flights from ${originDisplay} to ${destinationDisplay}`;
 
-  // Determine description text
+  // Determine description text - Route-specific only (no city-wide keywords)
   const descriptionText = airlineName
-    ? `Find comprehensive ${airlineName} flight information, schedules, and booking details for direct flights from ${originDisplay}${originCountry ? `, ${originCountry}` : ''} to ${destinationDisplay}${destinationCountry ? `, ${destinationCountry}` : ''}.`
-    : `Find comprehensive flight information, schedules, and booking details for direct flights from ${originDisplay}${originCountry ? `, ${originCountry}` : ''} to ${destinationDisplay}${destinationCountry ? `, ${destinationCountry}` : ''}.`;
+    ? `${airlineName} operates scheduled nonstop flights between ${originDisplay} and ${destinationDisplay}.`
+    : `Direct (non-stop) flights operate between ${originDisplay} and ${destinationDisplay}.`;
 
   return (
     <Box sx={{ mb: { xs: 3, sm: 4 } }}>

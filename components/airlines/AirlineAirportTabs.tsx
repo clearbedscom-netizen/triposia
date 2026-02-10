@@ -90,11 +90,11 @@ export default function AirlineAirportTabs({
         </Tabs>
       </Paper>
 
-      {/* Destinations Tab */}
+      {/* Destinations Tab - Airline-City Page: Focus on "cities with flights to" */}
       {tabValue === 0 && (
         <Box>
           <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
-            Destinations from {airportDisplay} ({filteredDestinations.length} of {destinations.length})
+            Cities with {airline.name} flights to {airportDisplay.includes('(') ? airportDisplay.split('(')[0].trim() : airportDisplay} ({filteredDestinations.length} of {destinations.length})
           </Typography>
           
           {/* Filters */}

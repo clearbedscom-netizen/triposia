@@ -108,17 +108,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           ...flightsTo.map(f => f.aircraft).filter(Boolean),
         ])).slice(0, 3);
         
-        const title = `${airline.name} Flights from ${airportDisplay}`;
-        let description = `View ${airline.name} flights to and from ${airportDisplay}. Check ${airline.name} flight schedules, departure times, arrival times, terminal information, and aircraft details.`;
+        // Airline-City Page: Focus on "flights TO city" intent
+        // Get city name from airport
+        const cityName = airport.city || airportDisplay.split('(')[0].trim();
+        const title = `${airline.name} Flights to ${cityName} (${iata})`;
+        let description = `${airline.name} operates scheduled flights to ${cityName}, serving ${airportDisplay} with connections from multiple domestic and international cities.`;
         
-        if (flightsFrom.length > 0 || flightsTo.length > 0) {
-          description += ` ${flightsFrom.length} daily departure${flightsFrom.length !== 1 ? 's' : ''} and ${flightsTo.length} daily arrival${flightsTo.length !== 1 ? 's' : ''}.`;
-        }
         if (destinationsCount > 0) {
-          description += ` Serves ${destinationsCount} destination${destinationsCount !== 1 ? 's' : ''} and receives flights from ${originsCount} origin${originsCount !== 1 ? 's' : ''}.`;
+          description += ` ${airline.name} serves ${destinationsCount} destination${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay}.`;
+        }
+        if (flightsFrom.length > 0) {
+          description += ` ${flightsFrom.length} daily departure${flightsFrom.length !== 1 ? 's' : ''} available.`;
         }
         if (aircraftTypes.length > 0) {
-          description += ` Aircraft: ${aircraftTypes.join(', ')}.`;
+          description += ` Aircraft types: ${aircraftTypes.join(', ')}.`;
         }
         
         return genMeta({
@@ -161,12 +164,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const flightsPerDay = route?.flights_per_day;
   const aircraftTypes = Array.from(new Set(flights.map(f => f.aircraft).filter(Boolean))).slice(0, 3);
   
+  // Airline-Route Page: Route-specific intent only (no city-wide keywords)
   const title = airline && route
-    ? `${airline.name} Flights ${originDisplay} to ${destinationDisplay}`
-    : `${code} Flights ${originDisplay} to ${destinationDisplay}`;
+    ? `${airline.name} Flights from ${originDisplay} to ${destinationDisplay}`
+    : `${code} Flights from ${originDisplay} to ${destinationDisplay}`;
   
+  // Route-specific description (no "flights to city" language)
   let description = airline && route
-    ? `Book ${airline.name} flights from ${originDisplay} to ${destinationDisplay}. View ${airline.name} flight schedule with ${flightCount} daily flight${flightCount !== 1 ? 's' : ''}, departure times, arrival times, terminal information, and aircraft details.`
+    ? `${airline.name} operates scheduled nonstop flights between ${originDisplay} and ${destinationDisplay}. View ${airline.name} flight schedule with ${flightCount} daily flight${flightCount !== 1 ? 's' : ''}, departure times, arrival times, terminal information, and aircraft details.`
     : `View ${code} airline flights from ${originDisplay} to ${destinationDisplay}. Check ${code} flight schedules and booking information.`;
   
   // Add more details to description (keep concise for Bing/Yandex)
@@ -448,7 +453,9 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       { name: `Flights ${airportDisplay}`, url: `${siteUrl}/airlines/${code.toLowerCase()}/${iata.toLowerCase()}` },
     ]);
 
-    const introText = `${airline.name} operates flights from ${airportDisplay}. From here, ${airline.name} serves ${destinationsWithDisplay.length} destination${destinationsWithDisplay.length !== 1 ? 's' : ''} and receives flights from ${originsWithDisplay.length} origin${originsWithDisplay.length !== 1 ? 's' : ''}.`;
+    // Airline-City Page: Focus on "flights TO city" intent
+    const cityName = airport.city || airportDisplay.split('(')[0].trim();
+    const introText = `${airline.name} operates scheduled flights to ${cityName}, serving ${airportDisplay} with connections from multiple domestic and international cities.`;
 
     // Get terminal phone information for airport page
     const terminalPhones = await getTerminalPhones(iata, airline.iata || airline.code);
@@ -516,10 +523,12 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {airlineArrivalsListingSchema && <JsonLd data={airlineArrivalsListingSchema} />}
         {airportFAQSchema && <JsonLd data={airportFAQSchema} />}
 
+        {/* Airline-City Page H1: Focus on "flights TO city" intent */}
         <Typography variant="h1" gutterBottom sx={{ textAlign: 'left', fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }, lineHeight: { xs: 1.3, sm: 1.4 }, wordBreak: 'break-word' }}>
-          {airline.name} Flights from {airportDisplay}
+          {airline.name} Flights to {cityName} ({iata})
         </Typography>
 
+        {/* First paragraph: Explicit intent confirmation */}
         <Typography variant="body1" sx={{ mb: 3, fontSize: '1.1rem', lineHeight: 1.8 }}>
           {introText}
         </Typography>
@@ -560,11 +569,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           </Grid>
         </Grid>
 
-        {/* Popular Routes Cards */}
+        {/* Popular Routes Cards - Airline-City Page: Link to route pages */}
         {destinations.length > 0 && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 3, textAlign: 'left' }}>
-              {airline.name} Routes from {airportDisplay}
+              Most frequent {airline.name} routes to {cityName}
             </Typography>
             <Grid container spacing={2}>
               {destinationsWithDisplay.slice(0, 12).map((dest) => {
@@ -2466,6 +2475,22 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                 </Typography>
               </Box>
             ))}
+          </Paper>
+        </Box>
+      )}
+
+      {/* Link back to airline-city page (below the fold, passes authority without cannibalization) */}
+      {originAirport?.city && (
+        <Box sx={{ mt: 6, mb: 4 }}>
+          <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <Link href={`/airlines/${code.toLowerCase()}/${origin.toLowerCase()}`} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                View all {airline.name} flights to {originAirport.city} ({origin}) →
+              </Link>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+              Popular {airline.name} routes from {originAirport.city} include multiple destinations.
+            </Typography>
           </Paper>
         </Box>
       )}

@@ -264,6 +264,7 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   
   // Skip middleware for static files, API routes (except admin), webhooks, and Next.js internals
+  // Webhook endpoints bypass all middleware checks (including rate limiting and scraper detection)
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/admin') ||
