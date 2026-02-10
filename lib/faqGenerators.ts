@@ -4,6 +4,18 @@ import { formatAirportName } from './formatting';
 
 /**
  * Generate FAQs for flight route pages
+ * 
+ * Content Generation Guidelines:
+ * - Use ONLY Meta LLaMA models if AI generation is required (no OpenAI GPT)
+ * - Model must operate in DATA-SUMMARIZATION MODE
+ * - Never invent text beyond existing factual fields
+ * - No paraphrasing of competitor content
+ * - No hallucinated advice or guarantees
+ * - No generic explanatory paragraphs
+ * - No conversational AI tone
+ * - No marketing adjectives (best, cheapest, great option)
+ * - No filler phrases (in conclusion, overall, etc.)
+ * - No repetitive sentence structures
  */
 export interface DestinationData {
   rainfall?: number[];
@@ -13,6 +25,10 @@ export interface DestinationData {
   average_fare?: number;
 }
 
+/**
+ * Generate limited, factual FAQs for route pages (5-7 questions max)
+ * Only uses allowed questions from database fields
+ */
 export async function generateRouteFAQs(
   flights: Flight[],
   route: Route | null,
@@ -32,135 +48,55 @@ export async function generateRouteFAQs(
   const originDisplay = await formatAirportName(origin, originAirport);
   const destinationDisplay = await formatAirportName(destination, destinationAirport);
 
-  // How many flights operate on this route?
+  // 1. Do flights operate between {FROM} and {TO}?
   if (flights.length > 0) {
     faqs.push({
-      question: `How many flights operate from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `There ${flights.length === 1 ? 'is' : 'are'} ${flights.length} direct flight${flights.length !== 1 ? 's' : ''} operating from ${originDisplay} to ${destinationDisplay}.${route?.flights_per_day ? ` Approximately ${route.flights_per_day} daily.` : ''}`,
+      question: `Do flights operate between ${origin} and ${destination}?`,
+      answer: `Yes. ${flights.length} direct flight${flights.length !== 1 ? 's' : ''} operate${flights.length === 1 ? 's' : ''} between ${originDisplay} and ${destinationDisplay}.`,
     });
   }
 
-  // Which airlines operate on this route?
+  // 2. Which airlines operate this route?
   if (operatingAirlines.length > 0) {
     const airlineNames = operatingAirlines.map(a => a.name).slice(0, 5);
     faqs.push({
-      question: `Which airlines operate flights from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `${operatingAirlines.length} airline${operatingAirlines.length !== 1 ? 's' : ''} ${operatingAirlines.length === 1 ? 'operates' : 'operate'} on this route: ${airlineNames.join(', ')}${operatingAirlines.length > 5 ? `, and ${operatingAirlines.length - 5} more` : ''}.`,
+      question: `Which airlines operate this route?`,
+      answer: `${operatingAirlines.length} airline${operatingAirlines.length !== 1 ? 's' : ''} ${operatingAirlines.length === 1 ? 'operates' : 'operate'} this route: ${airlineNames.join(', ')}${operatingAirlines.length > 5 ? `, and ${operatingAirlines.length - 5} more` : ''}.`,
     });
   }
 
-  // Flight duration
+  // 3. How many flights operate daily?
+  if (route?.flights_per_day) {
+    faqs.push({
+      question: `How many flights operate daily?`,
+      answer: `${route.flights_per_day} flight${route.flights_per_day !== '1' ? 's' : ''} operate${route.flights_per_day === '1' ? 's' : ''} daily on this route.`,
+    });
+  } else if (flights.length > 0) {
+    faqs.push({
+      question: `How many flights operate daily?`,
+      answer: `${flights.length} flight${flights.length !== 1 ? 's' : ''} operate${flights.length === 1 ? 's' : ''} daily on this route.`,
+    });
+  }
+
+  // 4. What is the average flight duration?
   if (averageDuration && averageDuration !== 'Data not available') {
     faqs.push({
-      question: `How long is the flight from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `The flight duration from ${originDisplay} to ${destinationDisplay} is approximately ${averageDuration}.`,
+      question: `What is the average flight duration?`,
+      answer: `The average flight duration is ${averageDuration}.`,
     });
   }
 
-  // Distance
-  if (distance) {
+  // 5. Is this route operated year-round?
+  // Check if route has consistent flight data (simplified check)
+  if (flights.length > 0 && route) {
     faqs.push({
-      question: `What is the distance from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `The distance from ${originDisplay} to ${destinationDisplay} is ${distance}.`,
+      question: `Is this route operated year-round?`,
+      answer: `This route operates with ${route.flights_per_day || flights.length} daily flight${Number(route.flights_per_day || flights.length) !== 1 ? 's' : ''}.`,
     });
   }
 
-  // Flight time range
-  const flightTimeRange = getFlightTimeRange(flights);
-  if (flightTimeRange) {
-    faqs.push({
-      question: `What is the flight time range for this route?`,
-      answer: `Flight times on this route range from ${flightTimeRange}.`,
-    });
-  }
-
-  // Earliest and latest flights
-  const earliestFlight = getEarliestFlight(flights);
-  const lastFlight = getLastFlight(flights);
-  if (earliestFlight && lastFlight) {
-    faqs.push({
-      question: `What are the earliest and latest flight departure times?`,
-      answer: `The earliest flight departs at ${earliestFlight} and the latest flight departs at ${lastFlight}.`,
-    });
-  }
-
-  // Cheapest month
-  if (cheapestMonth) {
-    faqs.push({
-      question: `What is the cheapest month to fly from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `${cheapestMonth} is typically the cheapest month to fly on this route.`,
-    });
-  }
-
-  // Flights per week
-  if (flightsPerWeek) {
-    faqs.push({
-      question: `How many flights operate per week on this route?`,
-      answer: `Approximately ${flightsPerWeek} flight${Number(flightsPerWeek) !== 1 ? 's' : ''} operate per week from ${originDisplay} to ${destinationDisplay}.`,
-    });
-  }
-
-  // Aircraft types
-  const aircraftTypes = Array.from(new Set(flights.map(f => f.aircraft).filter(Boolean)));
-  if (aircraftTypes.length > 0) {
-    faqs.push({
-      question: `What types of aircraft operate on this route?`,
-      answer: `This route is served by ${aircraftTypes.slice(0, 5).join(', ')}${aircraftTypes.length > 5 ? ` and ${aircraftTypes.length - 5} more aircraft type${aircraftTypes.length - 5 !== 1 ? 's' : ''}` : ''}.`,
-    });
-  }
-
-  // Average price
-  if (averagePrice) {
-    faqs.push({
-      question: `What is the average flight price from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `The average flight price for a round-trip ticket from ${originDisplay} to ${destinationDisplay} is approximately $${averagePrice} USD. Prices can vary based on booking time, season, and airline.`,
-    });
-  }
-
-  // Price range by month
-  if (cheapestMonth) {
-    faqs.push({
-      question: `When is the best time to book flights from ${originDisplay} to ${destinationDisplay} for the lowest prices?`,
-      answer: `${cheapestMonth} is typically the cheapest month to fly from ${originDisplay} to ${destinationDisplay}. Booking in advance and avoiding peak travel seasons can help you find better deals.`,
-    });
-  }
-
-  // Number of airlines
-  if (operatingAirlines.length > 1) {
-    faqs.push({
-      question: `How many airlines offer flights from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `${operatingAirlines.length} airlines offer direct flights from ${originDisplay} to ${destinationDisplay}, providing travelers with multiple options for scheduling and pricing.`,
-    });
-  }
-
-  // Distance details
-  if (distance) {
-    const distanceNum = parseFloat(distance.replace(/[^0-9.]/g, ''));
-    if (distanceNum) {
-      faqs.push({
-        question: `How far is ${destinationDisplay} from ${originDisplay}?`,
-        answer: `The distance from ${originDisplay} to ${destinationDisplay} is ${distance}. This is a ${distanceNum < 500 ? 'short' : distanceNum < 1500 ? 'medium' : 'long'}-haul flight route.`,
-      });
-    }
-  }
-
-  // Time comparison
-  if (averageDuration && averageDuration !== 'Data not available') {
-    faqs.push({
-      question: `How long does it take to fly from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `The flight time from ${originDisplay} to ${destinationDisplay} is approximately ${averageDuration}. Actual flight duration may vary based on weather conditions, aircraft type, and routing.`,
-    });
-  }
-
-  // Destination city
-  if (destinationAirport?.city) {
-    faqs.push({
-      question: `What city does ${destinationDisplay} serve?`,
-      answer: `${destinationDisplay} serves ${destinationAirport.city}${destinationAirport.country ? `, ${destinationAirport.country}` : ''}.`,
-    });
-  }
-
-  return faqs;
+  // Limit to 5-7 FAQs
+  return faqs.slice(0, 7);
 }
 
 /**
@@ -226,7 +162,7 @@ export async function generateAirportFAQs(
   if (airport.international_count !== undefined && airport.international_count > 0) {
     faqs.push({
       question: `Does ${airportDisplay} offer international flights?`,
-      answer: `Yes, ${airportDisplay} offers international flights to ${airport.international_count} international destination${airport.international_count !== 1 ? 's' : ''}. The airport serves both domestic and international routes.`,
+      answer: `${airportDisplay} offers international flights to ${airport.international_count} international destination${airport.international_count !== 1 ? 's' : ''}.`,
     });
   }
 
@@ -242,7 +178,7 @@ export async function generateAirportFAQs(
   if (airport.connection_friendly !== undefined) {
     faqs.push({
       question: `Is ${airportDisplay} connection-friendly?`,
-      answer: `${airportDisplay} is ${airport.connection_friendly ? 'considered connection-friendly' : 'not primarily designed for connections'}, making it ${airport.connection_friendly ? 'suitable' : 'less ideal'} for layovers and connecting flights.`,
+      answer: `${airportDisplay} is ${airport.connection_friendly ? 'connection-friendly' : 'not primarily designed for connections'}.`,
     });
   }
 
@@ -474,7 +410,7 @@ export function generateAirlineFAQs(
   if (airline.baggage_allowance_domestic || airline.baggage_allowance_international) {
     faqs.push({
       question: `What is the baggage allowance for ${airline.name}?`,
-      answer: `${airline.name}'s baggage allowance is ${airline.baggage_allowance_domestic || 'varies'} for domestic flights${airline.baggage_allowance_international ? ` and ${airline.baggage_allowance_international} for international flights` : ''}. Please check with the airline for specific route and fare class restrictions.`,
+      answer: `${airline.name}'s baggage allowance is ${airline.baggage_allowance_domestic || 'varies'} for domestic flights${airline.baggage_allowance_international ? ` and ${airline.baggage_allowance_international} for international flights` : ''}.`,
     });
   }
 
@@ -482,7 +418,7 @@ export function generateAirlineFAQs(
   if (airline.cancellation_flexibility) {
     faqs.push({
       question: `What is ${airline.name}'s cancellation policy?`,
-      answer: `${airline.name} offers ${airline.cancellation_flexibility}. Please check with the airline for specific terms and conditions.`,
+      answer: `${airline.name} offers ${airline.cancellation_flexibility}.`,
     });
   }
 
@@ -755,7 +691,7 @@ export async function generateAirlineRouteFAQs(
   if (averagePrice) {
     faqs.push({
       question: `What is the average price for a ${airline.name} flight from ${originDisplay} to ${destinationDisplay}?`,
-      answer: `The average price for a round-trip ${airline.name} flight on this route is approximately $${averagePrice}. Prices can vary based on booking time and demand.`,
+      answer: `The average price for a round-trip ${airline.name} flight on this route is approximately $${averagePrice}.`,
     });
   }
 

@@ -6,6 +6,18 @@
  * - Support decision-making
  * - Reference real data points
  * - Are conditional (only render if justified)
+ * 
+ * Content Generation Guidelines:
+ * - Use ONLY Meta LLaMA models if AI generation is required (no OpenAI GPT)
+ * - Model must operate in DATA-SUMMARIZATION MODE
+ * - Never invent text beyond existing factual fields
+ * - No paraphrasing of competitor content
+ * - No hallucinated advice or guarantees
+ * - No generic explanatory paragraphs
+ * - No conversational AI tone
+ * - No marketing adjectives (best, cheapest, great option)
+ * - No filler phrases (in conclusion, overall, etc.)
+ * - No repetitive sentence structures
  */
 
 export interface RouteInsights {
@@ -45,32 +57,31 @@ export function generateRouteInsights(data: {
 
   // Why duration varies - only if we have duration data and multiple flights
   if (data.averageDuration && data.flights.length > 1) {
-    // Check if duration varies significantly (would need actual flight duration data)
-    insights.whyDurationVaries = `Flight duration on this route can vary based on aircraft type, wind conditions, and airline scheduling. Average duration is ${data.averageDuration}.`;
+    insights.whyDurationVaries = `Average flight duration is ${data.averageDuration}.`;
   }
 
   // Why a month is cheapest - only if price data exists
   if (data.cheapestMonths && data.cheapestMonths.length > 0) {
     const cheapest = data.cheapestMonths[0];
-    insights.whyCheapestMonth = `${cheapest} typically offers lower prices due to reduced demand outside peak travel seasons.`;
+    insights.whyCheapestMonth = `${cheapest} typically offers lower prices.`;
   }
 
   // Why certain airlines dominate - only if clear dominance exists
   if (data.airlines.length > 0 && data.flights.length > 5) {
     const uniqueAirlines = new Set(data.flights.map((f: any) => f.airline_iata)).size;
     if (uniqueAirlines <= 2) {
-      insights.whyAirlinesDominance = `This route is primarily served by ${data.airlines.slice(0, 2).join(' and ')}, reflecting hub connections and route network strategies.`;
+      insights.whyAirlinesDominance = `This route is primarily served by ${data.airlines.slice(0, 2).join(' and ')}.`;
     }
   }
 
   // Best time of day to fly - only if we have hour data
   if (data.busiestHours && data.busiestHours.length > 0) {
-    insights.bestTimeOfDay = `Peak departure times are ${data.busiestHours.join(', ')}, offering more flight options and potentially better connections.`;
+    insights.bestTimeOfDay = `Peak departure times are ${data.busiestHours.join(', ')}.`;
   }
 
   // Seasonal demand - only if we have meaningful seasonality data
   if (data.cheapestMonths && data.cheapestMonths.length >= 3) {
-    insights.seasonalDemand = `Demand varies seasonally, with higher prices during peak travel months and more availability during off-peak periods.`;
+    insights.seasonalDemand = `Demand varies seasonally.`;
   }
 
   return insights;
@@ -92,7 +103,7 @@ export function generateAirportInsights(data: {
 
   // Why connections - only if airport is connection-friendly
   if (data.connectionFriendly && data.routesCount > 20) {
-    insights.whyConnections = `This airport serves as a major connection hub with ${data.routesCount} destinations, facilitating transfers between domestic and international flights.`;
+    insights.whyConnections = `This airport serves as a connection hub with ${data.routesCount} destinations.`;
   }
 
   // Peak hours note - only if we have peak hour data
@@ -125,13 +136,14 @@ export function generateAirlineInsights(data: {
 
   // Route network focus - only if significant route count
   if (data.routesCount > 10) {
-    insights.routeNetworkFocus = `This airline operates ${data.routesCount} routes, focusing on ${data.hubAirports && data.hubAirports.length > 0 ? data.hubAirports.join(', ') + ' as primary hubs' : 'key markets'}.`;
+    const hubInfo = data.hubAirports && data.hubAirports.length > 0 ? ` with hubs at ${data.hubAirports.join(', ')}` : '';
+    insights.routeNetworkFocus = `This airline operates ${data.routesCount} routes${hubInfo}.`;
   }
 
   // Operational strengths - only if fleet data exists
   if (data.fleet && data.fleet.length > 0) {
     const fleetTypes = data.fleet.map((f: any) => f.type).filter(Boolean).slice(0, 3).join(', ');
-    insights.operationalStrengths = `Fleet includes ${fleetTypes}, enabling service across different route types and distances.`;
+    insights.operationalStrengths = `Fleet includes ${fleetTypes}.`;
   }
 
   // Baggage clarity - only if airline has specific baggage info

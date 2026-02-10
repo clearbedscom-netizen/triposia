@@ -29,6 +29,7 @@ import FlightTable from '@/components/ui/FlightTableLazy';
 import StatCard from '@/components/ui/StatCard';
 import RouteHeader from '@/components/flights/RouteHeader';
 import RouteInfoCards from '@/components/flights/RouteInfoCards';
+import RouteTruthBlock from '@/components/flights/RouteTruthBlock';
 import FlightCalendarWrapper from '@/components/flights/FlightCalendarWrapperLazy';
 import PriceStatistics from '@/components/flights/PriceStatisticsLazy';
 import WeatherCharts from '@/components/flights/WeatherChartsLazy';
@@ -147,10 +148,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? `Flight information from ${originDisplay} to ${destinationDisplay}. ${route.flights_per_day} daily. View schedules, airlines, and prices.`
     : `View flight information, schedules, and airlines for the route from ${originDisplay} to ${destinationDisplay}.`;
 
+  // Canonical should point to the canonical route page
+  const canonicalRoute = `${origin.toLowerCase()}-${destination.toLowerCase()}`;
+
   return genMeta({
     title,
     description,
-    canonical: `/flights/${params.route}`,
+    canonical: `/flights/${canonicalRoute}`,
     noindex: !finalShouldIndex,
   });
 }
@@ -795,13 +799,178 @@ export default async function FlightRoutePage({ params }: PageProps) {
           <JsonLd data={generateFlightScheduleSchema(flights, origin, destination, originDisplay, destinationDisplay)} />
         </>
       )}
-      {monthlyPrices.length > 0 && (
-        <JsonLd data={generatePriceCalendarSchema(monthlyPrices, origin, destination, originDisplay, destinationDisplay, averagePrice)} />
-      )}
       {routeFAQSchema && <JsonLd data={routeFAQSchema} />}
       {userFAQSchema && <JsonLd data={userFAQSchema} />}
 
-      {/* 1. Route Header (flightsfrom.com style) */}
+      {/* 1. RouteTruthBlock - FIRST visible content */}
+      <RouteTruthBlock
+        fromCity={originAirport?.city || origin}
+        fromIata={origin}
+        toCity={route.destination_city || destinationAirport?.city || destination}
+        toIata={destination}
+        airlineCount={operatingAirlines.length}
+        flightsPerDay={route.flights_per_day || flights.length}
+        averageDuration={averageDuration !== 'Data not available' ? averageDuration : undefined}
+        distance={formattedDistance}
+      />
+
+      {/* 2. Distance & Duration (numeric) */}
+      <Box sx={{ mb: 4 }}>
+        <Grid container spacing={2}>
+          {formattedDistance && (
+            <Grid item xs={12} sm={6}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Route Distance
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {formattedDistance}
+                </Typography>
+              </Paper>
+            </Grid>
+          )}
+          {averageDuration && averageDuration !== 'Data not available' && (
+            <Grid item xs={12} sm={6}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Average Duration
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {averageDuration}
+                </Typography>
+              </Paper>
+            </Grid>
+          )}
+        </Grid>
+      </Box>
+
+      {/* 3. Airlines Operating This Route */}
+      {operatingAirlines.length > 0 && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
+            Airlines Operating This Route
+          </Typography>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="body1">
+              {operatingAirlines.map((airline, idx) => (
+                <span key={airline.code}>
+                  {airline.name}
+                  {idx < operatingAirlines.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+            </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {/* 4. Flight Frequency (daily / weekly) */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
+          Flight Frequency
+        </Typography>
+        <Paper sx={{ p: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Daily Flights
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {route.flights_per_day || flights.length}
+              </Typography>
+            </Grid>
+            {flightsPerWeek && (
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Weekly Flights
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {flightsPerWeek}
+                </Typography>
+              </Grid>
+            )}
+          </Grid>
+        </Paper>
+      </Box>
+
+      {/* 5. Typical Departure Time Ranges */}
+      {(earliestFlight || lastFlight) && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
+            Typical Departure Time Ranges
+          </Typography>
+          <Paper sx={{ p: 2 }}>
+            <Grid container spacing={2}>
+              {earliestFlight && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Earliest Departure
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    {earliestFlight}
+                  </Typography>
+                </Grid>
+              )}
+              {lastFlight && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Latest Departure
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    {lastFlight}
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </Paper>
+        </Box>
+      )}
+
+      {/* 6. Route FAQs (max 5–7) */}
+      {routeFAQs.length > 0 && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
+            Frequently Asked Questions
+          </Typography>
+          <Paper sx={{ p: 3 }}>
+            {routeFAQs.map((faq, idx) => (
+              <Box key={idx} sx={{ mb: idx < routeFAQs.length - 1 ? 3 : 0 }}>
+                <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
+                  {faq.question}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {faq.answer}
+                </Typography>
+              </Box>
+            ))}
+          </Paper>
+        </Box>
+      )}
+
+      {/* 7. ALL other content below the fold */}
+      
+      {/* Flight Schedule */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
+          Flight Schedule
+        </Typography>
+        {flights.length > 0 ? (
+          <FlightCalendarWrapper 
+            flights={flights} 
+            origin={origin}
+            destination={destination}
+            originDisplay={originDisplay}
+            destinationDisplay={destinationDisplay}
+          />
+        ) : (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Flight schedule data is being updated. Please check back soon.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
+
+      {/* Route Header (moved below) */}
       <RouteHeader
         origin={origin}
         destination={destination}
@@ -878,59 +1047,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
         </Box>
       )}
 
-      {/* 4. Route Insights (Conditional, Data-Driven) */}
-      {(() => {
-        const insights = generateRouteInsights({
-          flights,
-          route,
-          averageDuration: averageDuration !== 'Data not available' ? averageDuration : undefined,
-          distance,
-          airlines: airlines,
-          cheapestMonths: cheapestMonth ? [cheapestMonth] : undefined,
-          busiestHours: busiestHours && busiestHours !== 'Data not available' ? [busiestHours] : undefined,
-        });
-        
-        if (!shouldRenderInsights(insights)) return null;
-        
-        return (
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
-              Route Insights
-            </Typography>
-            <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {insights.whyDurationVaries && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Duration variability:</strong> {insights.whyDurationVaries}
-                  </Typography>
-                )}
-                {insights.whyCheapestMonth && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Pricing patterns:</strong> {insights.whyCheapestMonth}
-                  </Typography>
-                )}
-                {insights.whyAirlinesDominance && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Airline service:</strong> {insights.whyAirlinesDominance}
-                  </Typography>
-                )}
-                {insights.bestTimeOfDay && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Best departure times:</strong> {insights.bestTimeOfDay}
-                  </Typography>
-                )}
-                {insights.seasonalDemand && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Seasonal demand:</strong> {insights.seasonalDemand}
-                  </Typography>
-                )}
-              </Box>
-            </Paper>
-          </Box>
-        );
-      })()}
-
-      {/* 5. Enhanced Weather Section (from weather collection) */}
+      {/* Weather Section (moved below FAQs) */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
           Weather at {destinationDisplay}
@@ -952,89 +1069,27 @@ export default async function FlightRoutePage({ params }: PageProps) {
         )}
       </Box>
 
-      {/* 6. Booking Insights */}
+      {/* Booking Insights (moved below FAQs) */}
+      {destinationBookingInsights && (
       <Box sx={{ mb: 4 }}>
         <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
           Booking Insights
         </Typography>
-        {destinationBookingInsights ? (
           <BookingInsightsSection insights={destinationBookingInsights} airportName={destinationDisplay} />
-        ) : (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Booking insights for this route are being updated. Please check back soon.
-            </Typography>
-          </Paper>
-        )}
       </Box>
+      )}
 
-      {/* 7. Price Trends */}
+      {/* Price Trends (moved below FAQs) */}
+      {destinationPriceTrends && (
       <Box sx={{ mb: 4 }}>
         <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
           Price Trends
         </Typography>
-        {destinationPriceTrends ? (
           <PriceTrendsSection trends={destinationPriceTrends} airportName={destinationDisplay} />
-        ) : (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Price trend data for this route is being updated. Please check back soon.
-            </Typography>
-          </Paper>
-        )}
       </Box>
+      )}
 
-      {/* 8. Travel Planning */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
-          Travel Planning
-        </Typography>
-        {destinationData && (destinationData.cheapest_day || destinationData.cheapest_month || destinationData.average_fare || destinationData.rainfall || destinationData.temperature) ? (
-          <TravelPlanning
-            cheapestDay={destinationData.cheapest_day}
-            cheapestMonth={destinationData.cheapest_month || cheapestMonth}
-            averageFare={destinationData.average_fare}
-            rainfall={destinationData.rainfall}
-            temperature={destinationData.temperature}
-            destinationName={destinationDisplay}
-            originName={originDisplay}
-          />
-        ) : (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Travel planning information for this route is being updated. Please check back soon.
-            </Typography>
-          </Paper>
-        )}
-      </Box>
-
-      {/* 7. Price Statistics */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
-          Flight Price Statistics
-        </Typography>
-        {monthlyPrices.length > 0 ? (
-          <PriceStatistics
-            averagePrice={averagePrice}
-            monthlyPrices={monthlyPrices}
-            description="The numbers are average prices found based on user searches for direct flights between the airports. It's calculated from the cheapest prices found per month for a round-trip with 1 adult and can vary depending on the amount of data we have for this particular route."
-            originCity={originAirport?.city}
-            destinationCity={route.destination_city || destinationAirport?.city}
-            originCode={origin}
-            destinationCode={destination}
-            originDisplay={originDisplay}
-            destinationDisplay={destinationDisplay}
-          />
-        ) : (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Price data for this route is being updated. Please check back soon.
-            </Typography>
-          </Paper>
-        )}
-      </Box>
-
-      {/* 7. POI Section (from apois collection) */}
+      {/* POI Section (moved below FAQs) */}
       {apois.length > 0 && (
         <Box sx={{ mb: 4 }}>
           <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 3, textAlign: 'left' }}>
@@ -1094,37 +1149,6 @@ export default async function FlightRoutePage({ params }: PageProps) {
         />
       )}
 
-      {/* Related Pages */}
-      <RelatedPages
-        routes={relatedRoutes}
-        airports={relatedAirports}
-        airlines={operatingAirlines.slice(0, 6)}
-        maxRoutes={6}
-        maxAirports={2}
-        maxAirlines={6}
-      />
-
-      {/* FAQ Section */}
-      {routeFAQs.length > 0 && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>
-              Frequently Asked Questions
-            </Typography>
-            <Paper sx={{ p: 3 }}>
-            {routeFAQs.map((faq, idx) => (
-              <Box key={idx} sx={{ mb: idx < routeFAQs.length - 1 ? 3 : 0 }}>
-                  <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
-                    {faq.question}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {faq.answer}
-                  </Typography>
-                </Box>
-              ))}
-            </Paper>
-          </Box>
-      )}
-
       {/* Server-side FAQ Section for SEO */}
       <FAQServerSection
         pageType="flight-route"
@@ -1138,6 +1162,13 @@ export default async function FlightRoutePage({ params }: PageProps) {
           pageSlug={params.route}
           pageUrl={`/flights/${params.route}`}
         />
+      </Box>
+
+      {/* Footer Note */}
+      <Box sx={{ mt: 6, pt: 4, borderTop: 1, borderColor: 'divider' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+          Route data verified regularly by Triposia Travel Research Team.
+        </Typography>
       </Box>
     </Container>
   );

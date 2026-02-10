@@ -16,7 +16,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 
 export const metadata: Metadata = genMeta({
   title: `Our Team - ${COMPANY_INFO.name}`,
-  description: 'Meet the travel experts and developers behind Triposia. Our team of adventure enthusiasts, travel experts, and developers are dedicated to providing the best travel information.',
+  description: 'Meet the travel experts and developers behind Triposia. Our team of adventure enthusiasts, travel experts, and developers are dedicated to providing travel information.',
   canonical: '/team',
 });
 
