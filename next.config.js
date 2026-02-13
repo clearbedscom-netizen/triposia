@@ -8,6 +8,11 @@ const nextConfig = {
         hostname: 'ik.imagekit.io',
         pathname: '/clearmystay/askfares/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'ik.imagekit.io',
+        pathname: '/triposia/**',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
