@@ -464,6 +464,14 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     const editorialSlug = `airlines/${code.toLowerCase()}/${iata.toLowerCase()}`;
     const editorialPage = await getEditorialPage(editorialSlug);
 
+    // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
+    const hasEditorialContent = editorialPage && (
+      (editorialPage.headings && editorialPage.headings.length > 0) ||
+      (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
+      (editorialPage.faqs && editorialPage.faqs.length > 0) ||
+      editorialPage.manualContent
+    );
+
     // Generate flight schemas for airline airport page
     const airlineDeparturesListingSchema = generateAirlineFlightListingSchema(
       flightsFrom,
@@ -484,8 +492,8 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       airportDisplay
     );
 
-    // Generate FAQs for airline airport page
-    const airportFAQs = await generateAirlineAirportFAQs(
+    // Generate FAQs for airline airport page (use editorial FAQs if available, otherwise generate)
+    const generatedAirportFAQs = await generateAirlineAirportFAQs(
       airline,
       airport,
       flightsFrom,
@@ -495,6 +503,10 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       terminalPhones,
       airportDisplay // Pass the already-formatted airportDisplay
     );
+    // Use editorial FAQs if available, otherwise use generated FAQs
+    const airportFAQs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
+      ? editorialPage.faqs 
+      : generatedAirportFAQs;
 
     // Generate FAQ schema for airport page
     const airportFAQSchema = generateFAQPageSchema(
@@ -1456,8 +1468,22 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     airline.iata || airline.code || code
   );
   
+  // Check if page exists in pages_editorial collection
+  const slug = `airlines/${code.toLowerCase()}/${routeSlug}`;
+  const editorialPage = await getEditorialPage(slug);
+  const useOldModel = await shouldUseOldModel(slug);
+
+  // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
+  const hasEditorialContent = editorialPage && (
+    (editorialPage.headings && editorialPage.headings.length > 0) ||
+    (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
+    (editorialPage.faqs && editorialPage.faqs.length > 0) ||
+    editorialPage.manualContent
+  );
+
   // Generate airline-specific FAQs with terminal information (limited to 5-7)
-  const routeFAQs = await generateAirlineRouteFAQs(
+  // Use editorial FAQs if available, otherwise generate
+  const generatedRouteFAQs = await generateAirlineRouteFAQs(
     airline,
     flights,
     allFlights, // Pass all flights for comparison
@@ -1474,6 +1500,10 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     originTerminalPhones,
     destinationTerminalPhones
   );
+  // Use editorial FAQs if available, otherwise use generated FAQs
+  const routeFAQs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
+    ? editorialPage.faqs 
+    : generatedRouteFAQs;
 
   // Fetch user-submitted FAQs for SEO
   const userFAQs = await findFAQsByPage('airline-route', routeSlug, {
@@ -1510,16 +1540,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       )
     : null;
 
-  // Generate FAQ schema (from generated FAQs)
+  // Generate FAQ schema (from FAQs being used)
   const faqSchema = generateFAQPageSchema(
     routeFAQs,
     `Frequently Asked Questions about ${airline.name} flights from ${originDisplay} to ${destinationDisplay}`
   );
-
-  // Check if page exists in pages_editorial collection
-  const slug = `airlines/${code.toLowerCase()}/${routeSlug}`;
-  const editorialPage = await getEditorialPage(slug);
-  const useOldModel = await shouldUseOldModel(slug);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -2494,6 +2519,39 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           pageUrl={`/airlines/${code.toLowerCase()}/${routeSlug}`}
         />
       </Box>
+
+      {/* Manual Content from pages_editorial - Display above FAQs */}
+      {editorialPage?.manualContent && (
+        <Box sx={{ mt: 6, mb: 4 }}>
+          <Paper sx={{ p: 3 }}>
+            <Box
+              dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+              sx={{
+                '& h1, & h2, & h3, & h4, & h5, & h6': {
+                  mt: 2,
+                  mb: 1,
+                  '&:first-of-type': { mt: 0 },
+                },
+                '& p': {
+                  mb: 2,
+                  lineHeight: 1.8,
+                },
+                '& ul, & ol': {
+                  mb: 2,
+                  pl: 3,
+                },
+                '& li': {
+                  mb: 1,
+                },
+                '& a': {
+                  color: 'primary.main',
+                  textDecoration: 'underline',
+                },
+              }}
+            />
+          </Paper>
+        </Box>
+      )}
 
       {/* Route FAQs (max 5–7) - Moved to bottom */}
       {routeFAQs.length > 0 && (

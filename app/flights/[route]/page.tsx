@@ -694,8 +694,21 @@ export default async function FlightRoutePage({ params }: PageProps) {
     ? Math.round(monthlyPrices.reduce((sum, p) => sum + p.price, 0) / monthlyPrices.length)
     : undefined;
 
-  // Generate FAQs for route page
-  const routeFAQs = await generateRouteFAQs(
+  // Check if page exists in pages_editorial collection
+  const slug = `flights/${params.route}`;
+  const editorialPage = await getEditorialPage(slug);
+  const useOldModel = await shouldUseOldModel(slug);
+
+  // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
+  const hasEditorialContent = editorialPage && (
+    (editorialPage.headings && editorialPage.headings.length > 0) ||
+    (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
+    (editorialPage.faqs && editorialPage.faqs.length > 0) ||
+    editorialPage.manualContent
+  );
+
+  // Generate FAQs for route page (use editorial FAQs if available, otherwise generate)
+  const generatedRouteFAQs = await generateRouteFAQs(
     flights,
     route,
     origin,
@@ -710,6 +723,10 @@ export default async function FlightRoutePage({ params }: PageProps) {
     averagePrice,
     destinationData
   );
+  // Use editorial FAQs if available, otherwise use generated FAQs
+  const routeFAQs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
+    ? editorialPage.faqs 
+    : generatedRouteFAQs;
 
   // Fetch user-submitted FAQs for SEO
   const userFAQs = await findFAQsByPage('flight-route', params.route, {
@@ -749,16 +766,11 @@ export default async function FlightRoutePage({ params }: PageProps) {
       )
     : null;
 
-  // Generate FAQ schema for route page (from generated FAQs)
+  // Generate FAQ schema for route page (from FAQs being used)
   const routeFAQSchema = generateFAQPageSchema(
     routeFAQs,
     `Frequently Asked Questions about flights from ${originDisplay} to ${destinationDisplay}`
   );
-
-  // Check if page exists in pages_editorial collection
-  const slug = `flights/${params.route}`;
-  const editorialPage = await getEditorialPage(slug);
-  const useOldModel = await shouldUseOldModel(slug);
 
   // Generate flight schema with proper airport names
   const flightSchema = {

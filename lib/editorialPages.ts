@@ -4,12 +4,15 @@ import { ObjectId } from 'mongodb';
 export interface EditorialPage {
   _id?: ObjectId;
   slug: string;
-  pageType: 'airline' | 'airport' | 'route' | 'airline-route';
+  pageType: 'airline' | 'airport' | 'route' | 'airline-route' | 'flight-airport' | 'flight-route';
   title?: string;
   content?: string;
   overview?: string;
   description?: string;
   manualContent?: string; // HTML content to display above FAQ sections
+  headings?: Array<{ level: number; text: string }>; // Headings from editorial content
+  paragraphs?: string[]; // Paragraphs from editorial content
+  faqs?: Array<{ question: string; answer: string }>; // FAQs from editorial content
   metadata?: {
     title?: string;
     description?: string;

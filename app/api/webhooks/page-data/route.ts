@@ -542,6 +542,7 @@ export async function GET(request: NextRequest) {
 /**
  * Extract only headings, paragraphs, and FAQs from page data
  * Excludes flights, weather, prices, booking trends, etc.
+ * Prioritizes content from pages_editorial collection if available
  */
 function extractContentOnly(pageData: any, pageType: string): any {
   const content: any = {
@@ -555,61 +556,87 @@ function extractContentOnly(pageData: any, pageType: string): any {
     } : null,
   };
 
-  // Extract headings and paragraphs based on page type
-  if (pageData.airline && pageData.airportDisplay) {
-    // Airline-airport page
-    content.headings.push({
-      level: 1,
-      text: `${pageData.airline.name} Flights to ${pageData.airportDisplay}`,
-    });
-    content.paragraphs.push(
-      `${pageData.airline.name} operates scheduled flights to ${pageData.airportDisplay} with connections from multiple domestic and international cities.`
-    );
-  } else if (pageData.airline) {
-    // Airline page
-    content.headings.push({
-      level: 1,
-      text: pageData.airline.name,
-    });
-    content.paragraphs.push(
-      `${pageData.airline.name} operates scheduled passenger flights.`
-    );
+  // If editorial page has headings, paragraphs, or FAQs, use those first
+  if (pageData.editorialPage) {
+    if (pageData.editorialPage.headings && Array.isArray(pageData.editorialPage.headings)) {
+      content.headings = pageData.editorialPage.headings;
+    }
+    if (pageData.editorialPage.paragraphs && Array.isArray(pageData.editorialPage.paragraphs)) {
+      content.paragraphs = pageData.editorialPage.paragraphs;
+    }
+    if (pageData.editorialPage.faqs && Array.isArray(pageData.editorialPage.faqs)) {
+      content.faqs = pageData.editorialPage.faqs;
+    }
   }
 
-  if (pageData.airportDisplay && !pageData.airline) {
-    // Airport page
-    content.headings.push({
-      level: 1,
-      text: pageData.airportDisplay || `${pageData.airport?.name || ''} (${pageData.airport?.iata || ''})`,
-    });
-    if (pageData.airport) {
+  // If no editorial content, generate from page data
+  if (content.headings.length === 0) {
+    if (pageData.airline && pageData.airportDisplay) {
+      // Airline-airport page
+      content.headings.push({
+        level: 1,
+        text: `${pageData.airline.name} Flights to ${pageData.airportDisplay}`,
+      });
+    } else if (pageData.airline) {
+      // Airline page
+      content.headings.push({
+        level: 1,
+        text: pageData.airline.name,
+      });
+    }
+
+    if (pageData.airportDisplay && !pageData.airline) {
+      // Airport page
+      content.headings.push({
+        level: 1,
+        text: pageData.airportDisplay || `${pageData.airport?.name || ''} (${pageData.airport?.iata || ''})`,
+      });
+    }
+
+    if (pageData.originDisplay && pageData.destinationDisplay) {
+      // Route page
+      content.headings.push({
+        level: 1,
+        text: `Flights from ${pageData.originDisplay} to ${pageData.destinationDisplay}`,
+      });
+    }
+  }
+
+  if (content.paragraphs.length === 0) {
+    if (pageData.airline && pageData.airportDisplay) {
+      content.paragraphs.push(
+        `${pageData.airline.name} operates scheduled flights to ${pageData.airportDisplay} with connections from multiple domestic and international cities.`
+      );
+    } else if (pageData.airline) {
+      content.paragraphs.push(
+        `${pageData.airline.name} operates scheduled passenger flights.`
+      );
+    }
+
+    if (pageData.airportDisplay && !pageData.airline && pageData.airport) {
       content.paragraphs.push(
         `${pageData.airportDisplay} primarily handles ${pageData.airport.is_domestic ? 'domestic' : 'domestic and international'} flights.`
       );
     }
+
+    if (pageData.originDisplay && pageData.destinationDisplay) {
+      content.paragraphs.push(
+        `Flights operate between ${pageData.originDisplay} and ${pageData.destinationDisplay}.`
+      );
+    }
   }
 
-  if (pageData.originDisplay && pageData.destinationDisplay) {
-    // Route page
-    content.headings.push({
-      level: 1,
-      text: `Flights from ${pageData.originDisplay} to ${pageData.destinationDisplay}`,
-    });
-    content.paragraphs.push(
-      `Flights operate between ${pageData.originDisplay} and ${pageData.destinationDisplay}.`
-    );
-  }
-
-  // Add section headings
-  if (pageData.faqs && pageData.faqs.length > 0) {
+  // Add FAQ section heading if FAQs exist
+  if ((content.faqs.length > 0 || (pageData.faqs && pageData.faqs.length > 0)) && 
+      !content.headings.some((h: any) => h.text === 'Frequently Asked Questions')) {
     content.headings.push({
       level: 2,
       text: 'Frequently Asked Questions',
     });
   }
 
-  // Include FAQs if they exist
-  if (pageData.faqs && Array.isArray(pageData.faqs)) {
+  // If no FAQs from editorial, use generated FAQs
+  if (content.faqs.length === 0 && pageData.faqs && Array.isArray(pageData.faqs)) {
     content.faqs = pageData.faqs;
   }
 

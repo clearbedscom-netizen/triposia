@@ -196,12 +196,26 @@ export default async function AirportPage({ params }: PageProps) {
   const airlineCodes = Array.from(new Set(departures.map(f => f.airline_iata).filter(Boolean)));
   const relatedAirlines = await getRelatedAirlines(airlineCodes, LINK_LIMITS.airport.airlines);
   const relatedBlogs = await getRelatedBlogs('airport', iata, LINK_LIMITS.airport.blogs);
-  const faqs = await generateAirportFAQs(airport, departures, arrivals, routesFrom.length);
 
   // Check if page exists in pages_editorial collection
   const slug = `airports/${iata.toLowerCase()}`;
   const editorialPage = await getEditorialPage(slug);
   const useOldModel = await shouldUseOldModel(slug);
+
+  // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
+  const hasEditorialContent = editorialPage && (
+    (editorialPage.headings && editorialPage.headings.length > 0) ||
+    (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
+    (editorialPage.faqs && editorialPage.faqs.length > 0) ||
+    editorialPage.manualContent
+  );
+
+  // Generate FAQs (use editorial FAQs if available, otherwise generate)
+  const generatedFaqs = await generateAirportFAQs(airport, departures, arrivals, routesFrom.length);
+  // Use editorial FAQs if available, otherwise use generated FAQs
+  const faqs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
+    ? editorialPage.faqs 
+    : generatedFaqs;
 
   // Get top destinations with coordinates for the map
   const topDestinationRoutes = routesFrom

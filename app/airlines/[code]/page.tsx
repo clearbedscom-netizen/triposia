@@ -170,8 +170,20 @@ export default async function AirlinePage({ params }: PageProps) {
     ? airline.hubs.length 
     : hubAirportsArray.filter(a => a.shouldIndex).length || 1;
 
-  // Generate FAQs
-  const faqs = generateAirlineFAQs(airline, routes, code);
+  // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
+  const hasEditorialContent = editorialPage && (
+    (editorialPage.headings && editorialPage.headings.length > 0) ||
+    (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
+    (editorialPage.faqs && editorialPage.faqs.length > 0) ||
+    editorialPage.manualContent
+  );
+
+  // Generate FAQs (use editorial FAQs if available, otherwise generate)
+  const generatedFaqs = generateAirlineFAQs(airline, routes, code);
+  // Use editorial FAQs if available, otherwise use generated FAQs
+  const faqs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
+    ? editorialPage.faqs 
+    : generatedFaqs;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
