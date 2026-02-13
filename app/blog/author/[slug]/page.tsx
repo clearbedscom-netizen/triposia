@@ -57,8 +57,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       keywords: [author.name, 'blog author', 'travel writer', author.slug],
       image: author.avatar,
     }),
+    // Note: canonical is already set by genMeta in alternates.canonical, no need to duplicate
     alternates: {
-      canonical: authorUrl,
       languages: {
         'en-US': authorUrl,
       },

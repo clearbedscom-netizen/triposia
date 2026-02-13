@@ -41,8 +41,8 @@ export async function generateMetadata(): Promise<Metadata> {
         'travel guides',
       ],
     }),
+    // Note: canonical is already set by genMeta in alternates.canonical, no need to duplicate
     alternates: {
-      canonical: blogUrl,
       languages: {
         'en-US': blogUrl,
       },

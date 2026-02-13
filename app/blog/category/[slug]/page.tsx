@@ -58,8 +58,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       noindex: false, // Explicitly allow indexing
       keywords: [category.name.toLowerCase(), 'travel blog', 'blog category', category.slug],
     }),
+    // Note: canonical is already set by genMeta in alternates.canonical, no need to duplicate
     alternates: {
-      canonical: categoryUrl,
       languages: {
         'en-US': categoryUrl,
       },

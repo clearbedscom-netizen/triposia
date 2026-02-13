@@ -76,8 +76,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     authors: author ? [{ name: author.name, url: author.slug ? `${siteUrl}/blog/author/${author.slug}` : undefined }] : undefined,
     creator: author?.name || COMPANY_INFO.name,
     publisher: COMPANY_INFO.name,
+    // Note: canonical is already set by genMeta in alternates.canonical, no need to duplicate
     alternates: {
-      canonical: postUrl,
       languages: {
         'en-US': postUrl,
       },
@@ -99,6 +99,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: postUrl,
       siteName: COMPANY_INFO.name,
       locale: 'en_US',
+      ...(post.featured_image && {
+        images: [{
+          url: post.featured_image,
+          width: 1200,
+          height: 630,
+          alt: post.title || 'Featured image',
+        }],
+      }),
     },
     twitter: {
       card: 'summary_large_image',
@@ -423,30 +431,6 @@ export default async function BlogPostPage({ params }: PageProps) {
             )}
           </Box>
 
-          {/* Featured image */}
-          {post.featured_image && (
-            <Box sx={{ mb: 4 }} itemProp="image" itemScope itemType="https://schema.org/ImageObject">
-              <meta itemProp="url" content={post.featured_image} />
-              <meta itemProp="width" content="1200" />
-              <meta itemProp="height" content="630" />
-              <Box
-                component="img"
-                src={post.featured_image}
-                alt={post.title}
-                loading="eager"
-                width={1200}
-                height={630}
-                itemProp="contentUrl"
-                sx={{
-                  width: '100%',
-                  maxHeight: '500px',
-                  objectFit: 'cover',
-                  borderRadius: 2,
-                }}
-              />
-            </Box>
-          )}
-
           {/* Post title */}
           <Typography 
             variant="h1" 
@@ -462,6 +446,43 @@ export default async function BlogPostPage({ params }: PageProps) {
           >
             {post.title}
           </Typography>
+
+          {/* Featured image - displayed below title for better SEO and visual hierarchy */}
+          {post.featured_image && (
+            <Box 
+              sx={{ 
+                mb: 4,
+                width: '100%',
+                overflow: 'hidden',
+                borderRadius: 2,
+                position: 'relative',
+              }} 
+              itemProp="image" 
+              itemScope 
+              itemType="https://schema.org/ImageObject"
+            >
+              <meta itemProp="url" content={post.featured_image} />
+              <meta itemProp="width" content="1200" />
+              <meta itemProp="height" content="630" />
+              <Box
+                component="img"
+                src={post.featured_image}
+                alt={post.title || 'Featured image'}
+                loading="eager"
+                width={1200}
+                height={630}
+                itemProp="contentUrl"
+                sx={{
+                  width: '100%',
+                  height: { xs: 'auto', md: '500px' },
+                  maxHeight: { xs: '400px', md: '500px' },
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  display: 'block',
+                }}
+              />
+            </Box>
+          )}
 
           {/* Excerpt */}
           {post.excerpt && (
@@ -530,9 +551,13 @@ export default async function BlogPostPage({ params }: PageProps) {
                       },
                       '& img': {
                         maxWidth: '100%',
+                        width: '100%',
                         height: 'auto',
                         borderRadius: 1,
                         my: 2,
+                        display: 'block',
+                        objectFit: 'contain',
+                        objectPosition: 'center',
                       },
                       '& ul, & ol': {
                         mb: 2,
