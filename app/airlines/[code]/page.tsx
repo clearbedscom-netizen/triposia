@@ -170,19 +170,29 @@ export default async function AirlinePage({ params }: PageProps) {
     ? airline.hubs.length 
     : hubAirportsArray.filter(a => a.shouldIndex).length || 1;
 
+  // Get manualContent and FAQs from content object (new structure) or legacy fields
+  const manualContent = editorialPage?.content?.manualContent || editorialPage?.manualContent;
+  const editorialFAQs = editorialPage?.content?.faqs || editorialPage?.faqs;
+
   // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
   const hasEditorialContent = editorialPage && (
+    (editorialPage.content?.headings && (
+      (editorialPage.content.headings.h1 && editorialPage.content.headings.h1.length > 0) ||
+      (editorialPage.content.headings.h2 && editorialPage.content.headings.h2.length > 0) ||
+      (editorialPage.content.headings.h3 && editorialPage.content.headings.h3.length > 0)
+    )) ||
     (editorialPage.headings && editorialPage.headings.length > 0) ||
+    (editorialPage.content?.paragraphs && editorialPage.content.paragraphs.length > 0) ||
     (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
-    (editorialPage.faqs && editorialPage.faqs.length > 0) ||
-    editorialPage.manualContent
+    (editorialFAQs && editorialFAQs.length > 0) ||
+    !!manualContent
   );
 
   // Generate FAQs (use editorial FAQs if available, otherwise generate)
   const generatedFaqs = generateAirlineFAQs(airline, routes, code);
   // Use editorial FAQs if available, otherwise use generated FAQs
-  const faqs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
-    ? editorialPage.faqs 
+  const faqs = hasEditorialContent && editorialFAQs && editorialFAQs.length > 0 
+    ? editorialFAQs 
     : generatedFaqs;
 
   return (
@@ -238,28 +248,32 @@ export default async function AirlinePage({ params }: PageProps) {
       {useOldModel ? (
         <>
           <AnswerSummary>
-            {editorialPage?.content || (() => {
-              let answerSummary = `${airline.name}${airline.short_name ? ` (${airline.short_name})` : ''} (${code})`;
-              if (airline.country) answerSummary += ` is based in ${airline.country}`;
-              if (airline.city && airline.state) answerSummary += `, ${airline.city}, ${airline.state}`;
-              answerSummary += `. `;
-              if (routes.length > 0) {
-                answerSummary += `Operates flights to ${routes.length} destination${routes.length !== 1 ? 's' : ''}. `;
-              }
-              if (airline.fleet_size || airline.total_aircrafts) {
-                const fleetSize = airline.fleet_size || airline.total_aircrafts || 0;
-                answerSummary += `Fleet size: ${fleetSize} aircraft${fleetSize !== 1 ? 's' : ''}. `;
-              }
-              if (airline.average_fleet_age) {
-                answerSummary += `Average fleet age: ${airline.average_fleet_age} years. `;
-              }
-              if (airline.rating_skytrax_stars) {
-                answerSummary += `Skytrax rating: ${airline.rating_skytrax_stars} star${airline.rating_skytrax_stars !== 1 ? 's' : ''}. `;
-              }
-              if (airline.reliability_score) {
-                answerSummary += `Reliability score: ${airline.reliability_score}/10.`;
-              }
-              return answerSummary;
+            {(() => {
+              // Handle both legacy string content and new object structure
+              const legacyContent = typeof editorialPage?.content === 'string' ? editorialPage.content : null;
+              return legacyContent || (() => {
+                let answerSummary = `${airline.name}${airline.short_name ? ` (${airline.short_name})` : ''} (${code})`;
+                if (airline.country) answerSummary += ` is based in ${airline.country}`;
+                if (airline.city && airline.state) answerSummary += `, ${airline.city}, ${airline.state}`;
+                answerSummary += `. `;
+                if (routes.length > 0) {
+                  answerSummary += `Operates flights to ${routes.length} destination${routes.length !== 1 ? 's' : ''}. `;
+                }
+                if (airline.fleet_size || airline.total_aircrafts) {
+                  const fleetSize = airline.fleet_size || airline.total_aircrafts || 0;
+                  answerSummary += `Fleet size: ${fleetSize} aircraft${fleetSize !== 1 ? 's' : ''}. `;
+                }
+                if (airline.average_fleet_age) {
+                  answerSummary += `Average fleet age: ${airline.average_fleet_age} years. `;
+                }
+                if (airline.rating_skytrax_stars) {
+                  answerSummary += `Skytrax rating: ${airline.rating_skytrax_stars} star${airline.rating_skytrax_stars !== 1 ? 's' : ''}. `;
+                }
+                if (airline.reliability_score) {
+                  answerSummary += `Reliability score: ${airline.reliability_score}/10.`;
+                }
+                return answerSummary;
+              })();
             })()}
           </AnswerSummary>
           
@@ -1054,11 +1068,11 @@ export default async function AirlinePage({ params }: PageProps) {
       </Box>
 
       {/* Manual Content from pages_editorial - Display above FAQs */}
-      {editorialPage?.manualContent && (
+      {manualContent && (
         <Box sx={{ mt: 4, mb: 4 }}>
           <Paper sx={{ p: 3 }}>
             <Box
-              dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+              dangerouslySetInnerHTML={{ __html: manualContent }}
               sx={{
                 '& h1, & h2, & h3, & h4, & h5, & h6': {
                   mt: 2,

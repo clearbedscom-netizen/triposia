@@ -464,12 +464,22 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     const editorialSlug = `airlines/${code.toLowerCase()}/${iata.toLowerCase()}`;
     const editorialPage = await getEditorialPage(editorialSlug);
 
+    // Get manualContent and FAQs from content object (new structure) or legacy fields
+    const manualContent = editorialPage?.content?.manualContent || editorialPage?.manualContent;
+    const editorialFAQs = editorialPage?.content?.faqs || editorialPage?.faqs;
+
     // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
     const hasEditorialContent = editorialPage && (
+      (editorialPage.content?.headings && (
+        (editorialPage.content.headings.h1 && editorialPage.content.headings.h1.length > 0) ||
+        (editorialPage.content.headings.h2 && editorialPage.content.headings.h2.length > 0) ||
+        (editorialPage.content.headings.h3 && editorialPage.content.headings.h3.length > 0)
+      )) ||
       (editorialPage.headings && editorialPage.headings.length > 0) ||
+      (editorialPage.content?.paragraphs && editorialPage.content.paragraphs.length > 0) ||
       (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
-      (editorialPage.faqs && editorialPage.faqs.length > 0) ||
-      editorialPage.manualContent
+      (editorialFAQs && editorialFAQs.length > 0) ||
+      !!manualContent
     );
 
     // Generate flight schemas for airline airport page
@@ -504,8 +514,8 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       airportDisplay // Pass the already-formatted airportDisplay
     );
     // Use editorial FAQs if available, otherwise use generated FAQs
-    const airportFAQs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
-      ? editorialPage.faqs 
+    const airportFAQs = hasEditorialContent && editorialFAQs && editorialFAQs.length > 0 
+      ? editorialFAQs 
       : generatedAirportFAQs;
 
     // Generate FAQ schema for airport page
@@ -881,11 +891,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         )}
 
         {/* Manual Content from pages_editorial - Display above FAQs */}
-        {editorialPage?.manualContent && (
+        {manualContent && (
           <Box sx={{ mt: 4, mb: 4 }}>
             <Paper sx={{ p: 3 }}>
               <Box
-                dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+                dangerouslySetInnerHTML={{ __html: manualContent }}
                 sx={{
                   '& h1, & h2, & h3, & h4, & h5, & h6': {
                     mt: 2,
@@ -1473,12 +1483,22 @@ export default async function AirlineRoutePage({ params }: PageProps) {
   const editorialPage = await getEditorialPage(slug);
   const useOldModel = await shouldUseOldModel(slug);
 
+  // Get manualContent and FAQs from content object (new structure) or legacy fields
+  const manualContent = editorialPage?.content?.manualContent || editorialPage?.manualContent;
+  const editorialFAQs = editorialPage?.content?.faqs || editorialPage?.faqs;
+
   // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
   const hasEditorialContent = editorialPage && (
+    (editorialPage.content?.headings && (
+      (editorialPage.content.headings.h1 && editorialPage.content.headings.h1.length > 0) ||
+      (editorialPage.content.headings.h2 && editorialPage.content.headings.h2.length > 0) ||
+      (editorialPage.content.headings.h3 && editorialPage.content.headings.h3.length > 0)
+    )) ||
     (editorialPage.headings && editorialPage.headings.length > 0) ||
+    (editorialPage.content?.paragraphs && editorialPage.content.paragraphs.length > 0) ||
     (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
-    (editorialPage.faqs && editorialPage.faqs.length > 0) ||
-    editorialPage.manualContent
+    (editorialFAQs && editorialFAQs.length > 0) ||
+    !!manualContent
   );
 
   // Generate airline-specific FAQs with terminal information (limited to 5-7)
@@ -1501,8 +1521,8 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     destinationTerminalPhones
   );
   // Use editorial FAQs if available, otherwise use generated FAQs
-  const routeFAQs = hasEditorialContent && editorialPage?.faqs && editorialPage.faqs.length > 0 
-    ? editorialPage.faqs 
+  const routeFAQs = hasEditorialContent && editorialFAQs && editorialFAQs.length > 0 
+    ? editorialFAQs 
     : generatedRouteFAQs;
 
   // Fetch user-submitted FAQs for SEO
@@ -2521,11 +2541,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       </Box>
 
       {/* Manual Content from pages_editorial - Display above FAQs */}
-      {editorialPage?.manualContent && (
+      {manualContent && (
         <Box sx={{ mt: 6, mb: 4 }}>
           <Paper sx={{ p: 3 }}>
             <Box
-              dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+              dangerouslySetInnerHTML={{ __html: manualContent }}
               sx={{
                 '& h1, & h2, & h3, & h4, & h5, & h6': {
                   mt: 2,

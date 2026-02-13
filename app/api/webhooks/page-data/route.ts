@@ -545,6 +545,10 @@ export async function GET(request: NextRequest) {
  * Prioritizes content from pages_editorial collection if available
  */
 function extractContentOnly(pageData: any, pageType: string): any {
+  // Get manualContent and FAQs from content object (new structure) or legacy fields
+  const manualContent = pageData.editorialPage?.content?.manualContent || pageData.editorialPage?.manualContent;
+  const editorialFAQs = pageData.editorialPage?.content?.faqs || pageData.editorialPage?.faqs;
+
   const content: any = {
     type: pageData.type || pageType,
     slug: pageData.slug,
@@ -552,20 +556,39 @@ function extractContentOnly(pageData: any, pageType: string): any {
     paragraphs: [],
     faqs: [],
     editorialPage: pageData.editorialPage ? {
-      manualContent: pageData.editorialPage.manualContent,
+      manualContent: manualContent,
     } : null,
   };
 
   // If editorial page has headings, paragraphs, or FAQs, use those first
   if (pageData.editorialPage) {
+    // Check new content structure first
+    if (pageData.editorialPage.content?.headings) {
+      const headings = pageData.editorialPage.content.headings;
+      // Convert h1, h2, h3 arrays to unified format
+      if (headings.h1 && Array.isArray(headings.h1)) {
+        content.headings.push(...headings.h1.map((text: string) => ({ level: 1, text })));
+      }
+      if (headings.h2 && Array.isArray(headings.h2)) {
+        content.headings.push(...headings.h2.map((text: string) => ({ level: 2, text })));
+      }
+      if (headings.h3 && Array.isArray(headings.h3)) {
+        content.headings.push(...headings.h3.map((text: string) => ({ level: 3, text })));
+      }
+    }
+    // Fallback to legacy headings format
     if (pageData.editorialPage.headings && Array.isArray(pageData.editorialPage.headings)) {
       content.headings = pageData.editorialPage.headings;
     }
-    if (pageData.editorialPage.paragraphs && Array.isArray(pageData.editorialPage.paragraphs)) {
+    
+    if (pageData.editorialPage.content?.paragraphs && Array.isArray(pageData.editorialPage.content.paragraphs)) {
+      content.paragraphs = pageData.editorialPage.content.paragraphs;
+    } else if (pageData.editorialPage.paragraphs && Array.isArray(pageData.editorialPage.paragraphs)) {
       content.paragraphs = pageData.editorialPage.paragraphs;
     }
-    if (pageData.editorialPage.faqs && Array.isArray(pageData.editorialPage.faqs)) {
-      content.faqs = pageData.editorialPage.faqs;
+    
+    if (editorialFAQs && Array.isArray(editorialFAQs)) {
+      content.faqs = editorialFAQs;
     }
   }
 
