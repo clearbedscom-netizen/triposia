@@ -9,6 +9,7 @@ export interface EditorialPage {
   content?: string;
   overview?: string;
   description?: string;
+  manualContent?: string; // HTML content to display above FAQ sections
   metadata?: {
     title?: string;
     description?: string;

@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAirline, getAirlineRoutes } from '@/lib/queries';
+import { getAirline, getAirlineRoutes, getAirlineFlightsFromAirport, getAirlineFlightsToAirport } from '@/lib/queries';
 import { getAirportSummary, getRoutesFromAirport, getRoutesToAirport, getDepartures, getArrivals, getFlightsFromAirport, getFlightsToAirport } from '@/lib/queries';
 import { getRoute, getFlightsByRoute, getRouteWithMetadata, getDestinationData } from '@/lib/queries';
 import { getEditorialPage, shouldUseOldModel } from '@/lib/editorialPages';
 import { formatAirportName } from '@/lib/formatting';
+import { generateRouteFAQs, generateAirportFAQs, generateAirlineFAQs, generateAirlineRouteFAQs, generateAirlineAirportFAQs } from '@/lib/faqGenerators';
+import { getTerminalPhones } from '@/lib/queries';
 
 /**
  * Webhook endpoint to fetch full rendered page data
  * Used by admin site (admintriposia.vercel.app) to fetch page data
  * 
  * GET /api/webhooks/page-data?type=airline&slug=ai
+ * GET /api/webhooks/page-data?type=airline&slug=dl/atl (airline-airport page)
  * GET /api/webhooks/page-data?type=airport&slug=lga
  * GET /api/webhooks/page-data?type=route&slug=del-bom
  * GET /api/webhooks/page-data?type=airline-route&slug=dl/jfk-atl
@@ -117,45 +120,162 @@ export async function GET(request: NextRequest) {
 
     switch (pageType) {
       case 'airline': {
-        const code = slug.toUpperCase();
-        const airline = await getAirline(code);
-        if (!airline) {
-          return addCorsHeaders(
-            NextResponse.json({ error: 'Airline not found' }, { status: 404 })
+        // Check if slug contains '/' - this indicates an airline-airport page (e.g., "dl/atl")
+        if (slug.includes('/')) {
+          const parts = slug.split('/');
+          if (parts.length !== 2) {
+            return addCorsHeaders(
+              NextResponse.json({ error: 'Invalid airline-airport slug format' }, { status: 400 })
+            );
+          }
+
+          const code = parts[0].toUpperCase();
+          const iata = parts[1].toUpperCase();
+
+          // Validate it's a 3-letter IATA code
+          if (!/^[A-Z]{3}$/.test(iata)) {
+            return addCorsHeaders(
+              NextResponse.json({ error: 'Invalid airport IATA code' }, { status: 400 })
+            );
+          }
+
+          const airline = await getAirline(code);
+          if (!airline) {
+            return addCorsHeaders(
+              NextResponse.json({ error: 'Airline not found' }, { status: 404 })
+            );
+          }
+
+          const airport = await getAirportSummary(iata);
+          if (!airport) {
+            return addCorsHeaders(
+              NextResponse.json({ error: 'Airport not found' }, { status: 404 })
+            );
+          }
+
+          // Get airline flights from/to airport
+          const airlineIataCode = airline.iata || airline.code || code;
+          const flightsFrom = await getAirlineFlightsFromAirport(airlineIataCode, iata);
+          const flightsTo = await getAirlineFlightsToAirport(airlineIataCode, iata);
+          const routesFrom = await getRoutesFromAirport(iata);
+          const routesTo = await getRoutesToAirport(iata);
+          const airportDisplay = await formatAirportName(iata, airport);
+          const editorialSlug = `airlines/${code.toLowerCase()}/${iata.toLowerCase()}`;
+          const editorialPage = await getEditorialPage(editorialSlug);
+          const useOldModel = await shouldUseOldModel(editorialSlug);
+
+          // Get destinations and origins (filtered by airline flights)
+          const destinationsMap = new Map();
+          const destinationIatas = Array.from(new Set(routesFrom.map(r => r.destination_iata)));
+          const destinationAirports = await Promise.all(
+            destinationIatas.slice(0, 50).map(dest => getAirportSummary(dest))
           );
+
+          routesFrom.forEach(route => {
+            const airlineFlightsToDest = flightsFrom.filter(f => f.destination_iata === route.destination_iata);
+            if (airlineFlightsToDest.length > 0) {
+              const destAirport = destinationAirports.find(a => a?.iata_from === route.destination_iata);
+              destinationsMap.set(route.destination_iata, {
+                iata: route.destination_iata,
+                city: route.destination_city || destAirport?.city,
+                flights_per_day: `${airlineFlightsToDest.length} flight${airlineFlightsToDest.length !== 1 ? 's' : ''}`,
+              });
+            }
+          });
+          const destinations = Array.from(destinationsMap.values());
+
+          const originsMap = new Map();
+          const uniqueOrigins = Array.from(new Set(routesTo.map(r => r.origin_iata)));
+          const originAirports = await Promise.all(
+            uniqueOrigins.slice(0, 50).map(origin => getAirportSummary(origin))
+          );
+
+          routesTo.forEach(route => {
+            const airlineFlightsFromOrigin = flightsTo.filter(f => f.origin_iata === route.origin_iata);
+            if (airlineFlightsFromOrigin.length > 0 && !originsMap.has(route.origin_iata)) {
+              const originAirport = originAirports.find(a => a?.iata_from === route.origin_iata);
+              originsMap.set(route.origin_iata, {
+                iata: route.origin_iata,
+                city: originAirport?.city || route.origin_iata,
+                flights_per_day: `${airlineFlightsFromOrigin.length} flight${airlineFlightsFromOrigin.length !== 1 ? 's' : ''}`,
+              });
+            }
+          });
+          const origins = Array.from(originsMap.values());
+
+          // Generate FAQs for airline-airport page
+          const terminalPhones = await getTerminalPhones(iata, airlineIataCode);
+          const destinationsWithDisplay = destinations.map(d => ({
+            ...d,
+            display: `${d.city || ''} (${d.iata})`,
+          }));
+          const originsWithDisplay = origins.map(o => ({
+            ...o,
+            display: `${o.city || ''} (${o.iata})`,
+          }));
+          const faqs = await generateAirlineAirportFAQs(
+            airline,
+            airport,
+            flightsFrom,
+            flightsTo,
+            destinationsWithDisplay,
+            originsWithDisplay,
+            terminalPhones,
+            airportDisplay
+          );
+
+          pageData = {
+            type: 'airline-airport',
+            slug: editorialSlug,
+            airline,
+            airport,
+            airportDisplay,
+            faqs,
+            editorialPage,
+            useOldModel,
+          };
+        } else {
+          // Regular airline page
+          const code = slug.toUpperCase();
+          const airline = await getAirline(code);
+          if (!airline) {
+            return addCorsHeaders(
+              NextResponse.json({ error: 'Airline not found' }, { status: 404 })
+            );
+          }
+
+          const routes = await getAirlineRoutes(code);
+          const editorialSlug = `airlines/${code.toLowerCase()}`;
+          const editorialPage = await getEditorialPage(editorialSlug);
+          const useOldModel = await shouldUseOldModel(editorialSlug);
+
+          // Calculate countries served
+          const destinationIatas = Array.from(new Set(routes.map(r => r.destination_iata)));
+          const destinationAirports = await Promise.all(
+            destinationIatas.slice(0, 100).map(dest => getAirportSummary(dest))
+          );
+          const countriesServed = new Set(
+            destinationAirports.map(a => a?.country).filter(Boolean)
+          );
+          const countryCount = countriesServed.size || 1;
+
+          // Calculate hub count
+          const hubCount = airline.hubs && airline.hubs.length > 0 
+            ? airline.hubs.length 
+            : 1;
+
+          // Generate FAQs for airline page
+          const faqs = generateAirlineFAQs(airline, routes, code);
+
+          pageData = {
+            type: 'airline',
+            slug: editorialSlug,
+            airline,
+            faqs,
+            editorialPage,
+            useOldModel,
+          };
         }
-
-        const routes = await getAirlineRoutes(code);
-        const editorialSlug = `airlines/${code.toLowerCase()}`;
-        const editorialPage = await getEditorialPage(editorialSlug);
-        const useOldModel = await shouldUseOldModel(editorialSlug);
-
-        // Calculate countries served
-        const destinationIatas = Array.from(new Set(routes.map(r => r.destination_iata)));
-        const destinationAirports = await Promise.all(
-          destinationIatas.slice(0, 100).map(dest => getAirportSummary(dest))
-        );
-        const countriesServed = new Set(
-          destinationAirports.map(a => a?.country).filter(Boolean)
-        );
-        const countryCount = countriesServed.size || 1;
-
-        // Calculate hub count
-        const hubCount = airline.hubs && airline.hubs.length > 0 
-          ? airline.hubs.length 
-          : 1;
-
-        pageData = {
-          type: 'airline',
-          slug: editorialSlug,
-          airline,
-          routes,
-          editorialPage,
-          useOldModel,
-          countryCount,
-          hubCount,
-          totalRoutes: routes.length,
-        };
         break;
       }
 
@@ -176,21 +296,15 @@ export async function GET(request: NextRequest) {
         const editorialPage = await getEditorialPage(editorialSlug);
         const useOldModel = await shouldUseOldModel(editorialSlug);
 
-        // Get airlines
-        const airlineCodes = Array.from(new Set(departures.map(f => f.airline_iata).filter(Boolean)));
-        const airlines = await Promise.all(
-          airlineCodes.slice(0, 20).map(code => getAirline(code))
-        );
+        // Generate FAQs for airport page
+        const faqs = await generateAirportFAQs(airport, departures, arrivals, routesFrom.length);
 
         pageData = {
           type: 'airport',
           slug: editorialSlug,
           airport,
-          routesFrom,
-          departures,
-          arrivals,
           airportDisplay,
-          airlines: airlines.filter(Boolean),
+          faqs,
           editorialPage,
           useOldModel,
         };
@@ -221,26 +335,37 @@ export async function GET(request: NextRequest) {
         const originDisplay = await formatAirportName(origin, originAirport);
         const destinationDisplay = await formatAirportName(destination, destinationAirport);
 
-        // Get operating airlines
+        // Generate FAQs for route page
+        const routeMetadata = routeWithMetadata ? {
+          distance: routeWithMetadata.distance_km,
+          averageDuration: route?.average_duration || route?.typical_duration,
+        } : {};
+        const distance = routeMetadata.distance;
+        const averageDuration = routeMetadata.averageDuration;
+        const operatingAirlines = Array.from(new Set(flights.map(f => f.airline_name).filter(Boolean)));
         const airlineCodes = Array.from(new Set(flights.map(f => f.airline_iata).filter(Boolean)));
-        const operatingAirlines = await Promise.all(
-          airlineCodes.slice(0, 20).map(code => getAirline(code))
+        const airlines = (await Promise.all(
+          airlineCodes.slice(0, 10).map(code => getAirline(code))
+        )).filter((airline): airline is NonNullable<typeof airline> => airline !== null);
+        const faqs = await generateRouteFAQs(
+          flights,
+          route,
+          origin,
+          destination,
+          originAirport,
+          destinationAirport,
+          airlines,
+          distance,
+          averageDuration,
+          route?.cheapest_months
         );
 
         pageData = {
           type: pageType === 'flight-route' ? 'flight-route' : 'route',
           slug: editorialSlug,
-          route,
-          routeWithMetadata,
-          destinationData,
-          origin,
-          destination,
-          originAirport,
-          destinationAirport,
           originDisplay,
           destinationDisplay,
-          flights,
-          operatingAirlines: operatingAirlines.filter(Boolean),
+          faqs,
           editorialPage,
           useOldModel,
         };
@@ -268,39 +393,15 @@ export async function GET(request: NextRequest) {
         const editorialPage = await getEditorialPage(editorialSlug);
         const useOldModel = await shouldUseOldModel(editorialSlug);
 
-        // Get airlines
-        const airlineCodes = Array.from(new Set([
-          ...departures.map(f => f.airline_iata).filter(Boolean),
-          ...arrivals.map(f => f.airline_iata).filter(Boolean),
-        ]));
-        const airlines = await Promise.all(
-          airlineCodes.slice(0, 20).map(code => getAirline(code))
-        );
-
-        // Create destinations list
-        const destinationIatas = Array.from(new Set(routesFrom.map(r => r.destination_iata)));
-        const destinationAirports = await Promise.all(
-          destinationIatas.slice(0, 50).map(dest => getAirportSummary(dest))
-        );
-
-        // Create origins list
-        const originIatas = Array.from(new Set(routesTo.map(r => r.origin_iata)));
-        const originAirports = await Promise.all(
-          originIatas.slice(0, 50).map(orig => getAirportSummary(orig))
-        );
+        // Generate FAQs for flight-airport page
+        const faqs = await generateAirportFAQs(airport, departures, arrivals, routesFrom.length);
 
         pageData = {
           type: 'flight-airport',
           slug: editorialSlug,
           airport,
           airportDisplay,
-          departures,
-          arrivals,
-          routesFrom,
-          routesTo,
-          destinations: destinationAirports.filter(Boolean),
-          origins: originAirports.filter(Boolean),
-          airlines: airlines.filter(Boolean),
+          faqs,
           editorialPage,
           useOldModel,
         };
@@ -355,19 +456,43 @@ export async function GET(request: NextRequest) {
         const originDisplay = await formatAirportName(origin, originAirport);
         const destinationDisplay = await formatAirportName(destination, destinationAirport);
 
-        pageData = {
-          type: 'airline-route',
-          slug: editorialSlug,
+        // Generate FAQs for airline-route page
+        const routeWithMetadata = await getRouteWithMetadata(origin, destination);
+        const routeMetadata = routeWithMetadata ? {
+          distance: routeWithMetadata.distance_km,
+          averageDuration: route?.average_duration || route?.typical_duration,
+        } : {};
+        const distance = routeMetadata.distance;
+        const averageDuration = routeMetadata.averageDuration;
+        const cheapestMonth = route?.cheapest_months;
+        const flightsPerWeek = route?.flights_per_day ? Math.round(parseFloat(route.flights_per_day) * 7) : undefined;
+        const originTerminalPhones = await getTerminalPhones(origin, airline.iata || airline.code || code);
+        const destinationTerminalPhones = await getTerminalPhones(destination, airline.iata || airline.code || code);
+        const faqs = await generateAirlineRouteFAQs(
           airline,
-          route,
+          flights,
+          allFlights,
           origin,
           destination,
           originAirport,
           destinationAirport,
+          route,
+          distance,
+          averageDuration,
+          cheapestMonth,
+          flightsPerWeek,
+          undefined, // averagePrice
+          originTerminalPhones,
+          destinationTerminalPhones
+        );
+
+        pageData = {
+          type: 'airline-route',
+          slug: editorialSlug,
+          airline,
           originDisplay,
           destinationDisplay,
-          flights,
-          allFlights,
+          faqs,
           editorialPage,
           useOldModel,
         };
@@ -377,15 +502,18 @@ export async function GET(request: NextRequest) {
       default:
         return addCorsHeaders(
           NextResponse.json(
-            { error: `Invalid page type: ${pageType}. Valid types: airline, airport, route, airline-route, flight-airport, flight-route` },
+            { error: `Invalid page type: ${pageType}. Valid types: airline, airline-airport, airport, route, airline-route, flight-airport, flight-route` },
             { status: 400 }
           )
         );
     }
 
+    // Extract only headings, paragraphs, and FAQs (exclude flights, weather, prices, etc.)
+    const contentOnly = extractContentOnly(pageData, pageType);
+
     const response = NextResponse.json({
       success: true,
-      data: pageData,
+      data: contentOnly,
     });
 
     // Add CORS headers to response
@@ -410,3 +538,84 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+/**
+ * Extract only headings, paragraphs, and FAQs from page data
+ * Excludes flights, weather, prices, booking trends, etc.
+ */
+function extractContentOnly(pageData: any, pageType: string): any {
+  const content: any = {
+    type: pageData.type || pageType,
+    slug: pageData.slug,
+    headings: [],
+    paragraphs: [],
+    faqs: [],
+    editorialPage: pageData.editorialPage ? {
+      manualContent: pageData.editorialPage.manualContent,
+    } : null,
+  };
+
+  // Extract headings and paragraphs based on page type
+  if (pageData.airline && pageData.airportDisplay) {
+    // Airline-airport page
+    content.headings.push({
+      level: 1,
+      text: `${pageData.airline.name} Flights to ${pageData.airportDisplay}`,
+    });
+    content.paragraphs.push(
+      `${pageData.airline.name} operates scheduled flights to ${pageData.airportDisplay} with connections from multiple domestic and international cities.`
+    );
+  } else if (pageData.airline) {
+    // Airline page
+    content.headings.push({
+      level: 1,
+      text: pageData.airline.name,
+    });
+    content.paragraphs.push(
+      `${pageData.airline.name} operates scheduled passenger flights.`
+    );
+  }
+
+  if (pageData.airportDisplay && !pageData.airline) {
+    // Airport page
+    content.headings.push({
+      level: 1,
+      text: pageData.airportDisplay || `${pageData.airport?.name || ''} (${pageData.airport?.iata || ''})`,
+    });
+    if (pageData.airport) {
+      content.paragraphs.push(
+        `${pageData.airportDisplay} primarily handles ${pageData.airport.is_domestic ? 'domestic' : 'domestic and international'} flights.`
+      );
+    }
+  }
+
+  if (pageData.originDisplay && pageData.destinationDisplay) {
+    // Route page
+    content.headings.push({
+      level: 1,
+      text: `Flights from ${pageData.originDisplay} to ${pageData.destinationDisplay}`,
+    });
+    content.paragraphs.push(
+      `Flights operate between ${pageData.originDisplay} and ${pageData.destinationDisplay}.`
+    );
+  }
+
+  // Add section headings
+  if (pageData.faqs && pageData.faqs.length > 0) {
+    content.headings.push({
+      level: 2,
+      text: 'Frequently Asked Questions',
+    });
+  }
+
+  // Include FAQs if they exist
+  if (pageData.faqs && Array.isArray(pageData.faqs)) {
+    content.faqs = pageData.faqs;
+  }
+
+  return content;
+}
+
+// Route segment config - mark as public API route
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';

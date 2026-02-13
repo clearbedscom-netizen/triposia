@@ -1041,6 +1041,39 @@ export default async function AirlinePage({ params }: PageProps) {
         </Paper>
       </Box>
 
+      {/* Manual Content from pages_editorial - Display above FAQs */}
+      {editorialPage?.manualContent && (
+        <Box sx={{ mt: 4, mb: 4 }}>
+          <Paper sx={{ p: 3 }}>
+            <Box
+              dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+              sx={{
+                '& h1, & h2, & h3, & h4, & h5, & h6': {
+                  mt: 2,
+                  mb: 1,
+                  '&:first-of-type': { mt: 0 },
+                },
+                '& p': {
+                  mb: 2,
+                  lineHeight: 1.8,
+                },
+                '& ul, & ol': {
+                  mb: 2,
+                  pl: 3,
+                },
+                '& li': {
+                  mb: 1,
+                },
+                '& a': {
+                  color: 'primary.main',
+                  textDecoration: 'underline',
+                },
+              }}
+            />
+          </Paper>
+        </Box>
+      )}
+
       {/* FAQ Section */}
       {faqs.length > 0 && (
         <Box sx={{ mt: 4 }}>

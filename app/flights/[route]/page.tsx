@@ -1166,6 +1166,39 @@ export default async function FlightRoutePage({ params }: PageProps) {
         />
       </Box>
 
+      {/* Manual Content from pages_editorial - Display above FAQs */}
+      {editorialPage?.manualContent && (
+        <Box sx={{ mt: 6, mb: 4 }}>
+          <Paper sx={{ p: 3 }}>
+            <Box
+              dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+              sx={{
+                '& h1, & h2, & h3, & h4, & h5, & h6': {
+                  mt: 2,
+                  mb: 1,
+                  '&:first-of-type': { mt: 0 },
+                },
+                '& p': {
+                  mb: 2,
+                  lineHeight: 1.8,
+                },
+                '& ul, & ol': {
+                  mb: 2,
+                  pl: 3,
+                },
+                '& li': {
+                  mb: 1,
+                },
+                '& a': {
+                  color: 'primary.main',
+                  textDecoration: 'underline',
+                },
+              }}
+            />
+          </Paper>
+        </Box>
+      )}
+
       {/* Route FAQs (max 5–7) - Moved to bottom */}
       {routeFAQs.length > 0 && (
         <Box sx={{ mt: 6, mb: 4 }}>

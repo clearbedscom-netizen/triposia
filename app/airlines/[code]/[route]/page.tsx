@@ -460,6 +460,10 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     // Get terminal phone information for airport page
     const terminalPhones = await getTerminalPhones(iata, airline.iata || airline.code);
 
+    // Check if page exists in pages_editorial collection
+    const editorialSlug = `airlines/${code.toLowerCase()}/${iata.toLowerCase()}`;
+    const editorialPage = await getEditorialPage(editorialSlug);
+
     // Generate flight schemas for airline airport page
     const airlineDeparturesListingSchema = generateAirlineFlightListingSchema(
       flightsFrom,
@@ -862,6 +866,39 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {/* Seasonal Insights */}
         {seasonalInsights && (
           <SeasonalInsightsSection insights={seasonalInsights} airportName={airportDisplay} airlineName={airline.name} />
+        )}
+
+        {/* Manual Content from pages_editorial - Display above FAQs */}
+        {editorialPage?.manualContent && (
+          <Box sx={{ mt: 4, mb: 4 }}>
+            <Paper sx={{ p: 3 }}>
+              <Box
+                dangerouslySetInnerHTML={{ __html: editorialPage.manualContent }}
+                sx={{
+                  '& h1, & h2, & h3, & h4, & h5, & h6': {
+                    mt: 2,
+                    mb: 1,
+                    '&:first-of-type': { mt: 0 },
+                  },
+                  '& p': {
+                    mb: 2,
+                    lineHeight: 1.8,
+                  },
+                  '& ul, & ol': {
+                    mb: 2,
+                    pl: 3,
+                  },
+                  '& li': {
+                    mb: 1,
+                  },
+                  '& a': {
+                    color: 'primary.main',
+                    textDecoration: 'underline',
+                  },
+                }}
+              />
+            </Paper>
+          </Box>
         )}
 
         {/* FAQ Section */}
