@@ -11,6 +11,7 @@ import AirportFlightsTabs from '@/components/flights/AirportFlightsTabs';
 import FlightIcon from '@mui/icons-material/Flight';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import { getEditorialPage } from '@/lib/editorialPages';
 
 interface PageProps {
   params: {
@@ -24,18 +25,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const iata = params?.iata?.toUpperCase() || '';
   const airport = await getAirportSummary(iata);
   
-  const title = airport
-    ? `All Flights from ${iata} Airport - Destinations, Departures & Arrivals`
-    : `Flights from ${iata}`;
+  // Check for editorial page meta data
+  const slug = `flights/from-${iata.toLowerCase()}`;
+  const editorialPage = await getEditorialPage(slug);
+  const metaTitle = editorialPage?.meta?.title || editorialPage?.metadata?.title;
+  const metaDescription = editorialPage?.meta?.description || editorialPage?.metadata?.description;
+  const focusKeywords = editorialPage?.meta?.focusKeywords;
   
-  const description = airport
+  const title = metaTitle || (airport
+    ? `All Flights from ${iata} Airport - Destinations, Departures & Arrivals`
+    : `Flights from ${iata}`);
+  
+  const description = metaDescription || (airport
     ? `Complete flight information for ${iata} Airport: ${airport.destinations_count} destinations, ${airport.departure_count} daily departures, ${airport.arrival_count} daily arrivals.`
-    : `View all flights from ${iata} Airport.`;
+    : `View all flights from ${iata} Airport.`);
 
   return genMeta({
     title,
     description,
     canonical: `/flights/from-${iata.toLowerCase()}`,
+    keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
   });
 }
 

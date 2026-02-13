@@ -83,6 +83,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     });
   }
   
+  // Check for editorial page meta data
+  const slug = `airlines/${code.toLowerCase()}/${routeSlug}`;
+  const editorialPage = await getEditorialPage(slug);
+  const metaTitle = editorialPage?.meta?.title || editorialPage?.metadata?.title;
+  const metaDescription = editorialPage?.meta?.description || editorialPage?.metadata?.description;
+  const focusKeywords = editorialPage?.meta?.focusKeywords;
+  
   const routeParts = parseRouteSlug(routeSlug);
   if (!routeParts) {
     // Check if it's a single IATA code (airport page)
@@ -111,23 +118,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         // Airline-City Page: Focus on "flights TO city" intent
         // Get city name from airport
         const cityName = airport.city || airportDisplay.split('(')[0].trim();
-        const title = `${airline.name} Flights to ${cityName} (${iata})`;
-        let description = `${airline.name} operates scheduled flights to ${cityName}, serving ${airportDisplay} with connections from multiple domestic and international cities.`;
+        const title = metaTitle || `${airline.name} Flights to ${cityName} (${iata})`;
+        let description = metaDescription || `${airline.name} operates scheduled flights to ${cityName}, serving ${airportDisplay} with connections from multiple domestic and international cities.`;
         
-        if (destinationsCount > 0) {
-          description += ` ${airline.name} serves ${destinationsCount} destination${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay}.`;
-        }
-        if (flightsFrom.length > 0) {
-          description += ` ${flightsFrom.length} daily departure${flightsFrom.length !== 1 ? 's' : ''} available.`;
-        }
-        if (aircraftTypes.length > 0) {
-          description += ` Aircraft types: ${aircraftTypes.join(', ')}.`;
+        if (!metaDescription) {
+          if (destinationsCount > 0) {
+            description += ` ${airline.name} serves ${destinationsCount} destination${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay}.`;
+          }
+          if (flightsFrom.length > 0) {
+            description += ` ${flightsFrom.length} daily departure${flightsFrom.length !== 1 ? 's' : ''} available.`;
+          }
+          if (aircraftTypes.length > 0) {
+            description += ` Aircraft types: ${aircraftTypes.join(', ')}.`;
+          }
         }
         
         return genMeta({
           title,
           description,
           canonical: `/airlines/${code.toLowerCase()}/${iata.toLowerCase()}`,
+          keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
         });
       }
     }
@@ -165,17 +175,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const aircraftTypes = Array.from(new Set(flights.map(f => f.aircraft).filter(Boolean))).slice(0, 3);
   
   // Airline-Route Page: Route-specific intent only (no city-wide keywords)
-  const title = airline && route
+  const title = metaTitle || (airline && route
     ? `${airline.name} Flights from ${originDisplay} to ${destinationDisplay}`
-    : `${code} Flights from ${originDisplay} to ${destinationDisplay}`;
+    : `${code} Flights from ${originDisplay} to ${destinationDisplay}`);
   
   // Route-specific description (no "flights to city" language)
-  let description = airline && route
+  let description = metaDescription || (airline && route
     ? `${airline.name} operates scheduled nonstop flights between ${originDisplay} and ${destinationDisplay}. View ${airline.name} flight schedule with ${flightCount} daily flight${flightCount !== 1 ? 's' : ''}, departure times, arrival times, terminal information, and aircraft details.`
-    : `View ${code} airline flights from ${originDisplay} to ${destinationDisplay}. Check ${code} flight schedules and booking information.`;
+    : `View ${code} airline flights from ${originDisplay} to ${destinationDisplay}. Check ${code} flight schedules and booking information.`);
   
-  // Add more details to description (keep concise for Bing/Yandex)
-  if (airline && route) {
+  // Add more details to description (keep concise for Bing/Yandex) - only if not using meta description
+  if (!metaDescription && airline && route) {
     if (averageDuration && averageDuration !== 'Data not available') {
       description += ` Flight duration: ${averageDuration}.`;
     }
@@ -194,6 +204,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     canonical: `/flights/${canonicalRoute}`,
+    keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
   });
 }
 

@@ -29,6 +29,12 @@ export interface EditorialPage {
   metadata?: {
     title?: string;
     description?: string;
+    focusKeywords?: string;
+  };
+  meta?: {
+    title?: string;
+    description?: string;
+    focusKeywords?: string;
   };
   sections?: {
     [key: string]: any;

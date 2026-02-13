@@ -47,6 +47,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const airport = await getAirportSummary(iata);
   const flights = await getDepartures(iata, 50);
   
+  // Check for editorial page meta data
+  const slug = `airports/${iata.toLowerCase()}`;
+  const editorialPage = await getEditorialPage(slug);
+  const metaTitle = editorialPage?.meta?.title || editorialPage?.metadata?.title;
+  const metaDescription = editorialPage?.meta?.description || editorialPage?.metadata?.description;
+  const focusKeywords = editorialPage?.meta?.focusKeywords;
+  
   const indexingCheck = shouldIndexAirport(airport, flights);
   
   const qualityCheck = airport 
@@ -64,19 +71,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Format airport name for metadata
   const airportDisplayMeta = airport ? await formatAirportName(iata, airport) : iata;
   
-  const title = airport
+  const title = metaTitle || (airport
     ? `${airportDisplayMeta} - Flight Information & Statistics`
-    : `${iata} Airport`;
+    : `${iata} Airport`);
   
-  const description = airport
+  const description = metaDescription || (airport
     ? `Comprehensive information about ${airportDisplayMeta}. ${airport.destinations_count} destinations, ${airport.departure_count} daily departures, ${airport.arrival_count} daily arrivals. Find flight schedules, terminal information, and airport facilities.`
-    : `Flight information and statistics for ${iata} Airport.`;
+    : `Flight information and statistics for ${iata} Airport.`);
 
   return genMeta({
     title,
     description,
     canonical: `/airports/${iata.toLowerCase()}`,
     noindex: !finalShouldIndex,
+    keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
   });
 }
 

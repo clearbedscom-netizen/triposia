@@ -52,11 +52,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const code = params.code.toUpperCase();
   const airline = await getAirline(code);
   
-  const title = airline
+  // Check for editorial page meta data
+  const slug = `airlines/${code.toLowerCase()}`;
+  const editorialPage = await getEditorialPage(slug);
+  const metaTitle = editorialPage?.meta?.title || editorialPage?.metadata?.title;
+  const metaDescription = editorialPage?.meta?.description || editorialPage?.metadata?.description;
+  const focusKeywords = editorialPage?.meta?.focusKeywords;
+  
+  const title = metaTitle
+    ? optimizeTitle(metaTitle)
+    : airline
     ? optimizeTitle(`${airline.name} (${code}) - Airline Information & Routes`)
     : `${code} Airline`;
   
-  const description = airline
+  const description = metaDescription
+    ? optimizeDescription(metaDescription)
+    : airline
     ? optimizeDescription(`Complete information about ${airline.name} (${code}). View routes, destinations, flight schedules, fleet information, ratings, and contact details.`)
     : `View airline information and routes for ${code}.`;
 
@@ -64,6 +75,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     canonical: `/airlines/${code.toLowerCase()}`,
+    keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
   });
 }
 

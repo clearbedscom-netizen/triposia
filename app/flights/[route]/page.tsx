@@ -71,6 +71,13 @@ export const revalidate = 86400;
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const routeSlug = params.route;
   
+  // Check for editorial page meta data
+  const slug = `flights/${routeSlug}`;
+  const editorialPage = await getEditorialPage(slug);
+  const metaTitle = editorialPage?.meta?.title || editorialPage?.metadata?.title;
+  const metaDescription = editorialPage?.meta?.description || editorialPage?.metadata?.description;
+  const focusKeywords = editorialPage?.meta?.focusKeywords;
+  
   // Check if this is a single IATA code (3 letters, no hyphen) - handle as airport page
   if (/^[A-Z]{3}$/i.test(routeSlug) && !routeSlug.includes('-')) {
     const iata = routeSlug.toUpperCase();
@@ -83,18 +90,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Format airport name with city
     const airportDisplay = await formatAirportName(iata, airport, cityFromRoute);
     
-    const title = airport
+    const title = metaTitle || (airport
       ? `Flights from ${airportDisplay} - ${airport.destinations_count} destinations`
-      : `Flights from ${iata}`;
+      : `Flights from ${iata}`);
     
-    const description = airport
+    const description = metaDescription || (airport
       ? `Complete flight information for ${airportDisplay}: ${airport.destinations_count} destinations, ${airport.departure_count} daily departures, ${airport.arrival_count} daily arrivals. View all flights from and to ${airportDisplay}.`
-      : `View all flights from and to ${iata} Airport.`;
+      : `View all flights from and to ${iata} Airport.`);
 
     return genMeta({
       title,
       description,
       canonical: `/flights/${iata.toLowerCase()}`,
+      keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
     });
   }
   
@@ -141,13 +149,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   
   const finalShouldIndex = indexingCheck.shouldIndex && qualityCheck.indexable;
   
-  const title = route
+  const title = metaTitle || (route
     ? `Flights from ${originDisplay} to ${destinationDisplay} - ${route.flights_per_day}`
-    : `Flights from ${originDisplay} to ${destinationDisplay}`;
+    : `Flights from ${originDisplay} to ${destinationDisplay}`);
   
-  const description = route
+  const description = metaDescription || (route
     ? `Flight information from ${originDisplay} to ${destinationDisplay}. ${route.flights_per_day} daily. View schedules, airlines, and prices.`
-    : `View flight information, schedules, and airlines for the route from ${originDisplay} to ${destinationDisplay}.`;
+    : `View flight information, schedules, and airlines for the route from ${originDisplay} to ${destinationDisplay}.`);
 
   // Canonical should point to the canonical route page
   const canonicalRoute = `${origin.toLowerCase()}-${destination.toLowerCase()}`;
@@ -157,6 +165,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description,
     canonical: `/flights/${canonicalRoute}`,
     noindex: !finalShouldIndex,
+    keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
   });
 }
 
