@@ -1406,6 +1406,51 @@ export function formatRouteSlug(origin: string, destination: string): string {
   return `${origin.toLowerCase()}-${destination.toLowerCase()}`;
 }
 
+/**
+ * Generate ItemList schema for routes from an airport
+ */
+export function generateRouteListSchema(
+  routes: Array<{
+    origin_iata: string;
+    destination_iata: string;
+    destination_city: string;
+    flights_per_day: string;
+  }>,
+  airportIata: string,
+  airportDisplay: string
+) {
+  if (routes.length === 0) {
+    return null;
+  }
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Routes from ${airportDisplay}`,
+    description: `List of ${routes.length} flight routes from ${airportDisplay}`,
+    numberOfItems: routes.length,
+    itemListElement: routes.map((route, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'FlightRoute',
+        origin: {
+          '@type': 'Airport',
+          iataCode: route.origin_iata,
+          name: airportDisplay,
+        },
+        destination: {
+          '@type': 'Airport',
+          iataCode: route.destination_iata,
+          name: route.destination_city || `${route.destination_iata} Airport`,
+        },
+        frequency: route.flights_per_day,
+        url: `https://triposia.com/flights/${route.origin_iata.toLowerCase()}-${route.destination_iata.toLowerCase()}`,
+      },
+    })),
+  };
+}
+
 export function parseRouteSlug(slug: string): { origin: string; destination: string } | null {
   const parts = slug.split('-');
   if (parts.length >= 2) {

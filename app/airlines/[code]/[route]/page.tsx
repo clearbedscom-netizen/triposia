@@ -27,6 +27,7 @@ import RouteHeader from '@/components/flights/RouteHeader';
 import RouteInfoCards from '@/components/flights/RouteInfoCards';
 import RouteTruthBlock from '@/components/flights/RouteTruthBlock';
 import { getEditorialPage, shouldUseOldModel } from '@/lib/editorialPages';
+import ReliabilityBadge from '@/components/flights/ReliabilityBadge';
 import FlightCalendarWrapper from '@/components/flights/FlightCalendarWrapperLazy';
 import PriceStatistics from '@/components/flights/PriceStatisticsLazy';
 import PoiSection from '@/components/poi/PoiSection';
@@ -561,14 +562,118 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {airportFAQSchema && <JsonLd data={airportFAQSchema} />}
 
         {/* Airline-City Page H1: Focus on "flights TO city" intent */}
-        <Typography variant="h1" gutterBottom sx={{ textAlign: 'left', fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }, lineHeight: { xs: 1.3, sm: 1.4 }, wordBreak: 'break-word' }}>
-          {airline.name} Flights to {cityName} ({iata})
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+          <Typography variant="h1" gutterBottom sx={{ textAlign: 'left', fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }, lineHeight: { xs: 1.3, sm: 1.4 }, wordBreak: 'break-word', mb: 0 }}>
+            {airline.name} Flights to {cityName} ({iata})
+          </Typography>
+          {/* Reliability Badge */}
+          {(() => {
+            const reliability: 'Very Stable' | 'Moderate' | 'Seasonal' | 'Limited' = 
+              destinations.length >= 20 ? 'Very Stable' :
+              destinations.length >= 10 ? 'Moderate' :
+              destinations.length >= 5 ? 'Seasonal' : 'Limited';
+            return <ReliabilityBadge level={reliability} label={`${reliability} Service`} />;
+          })()}
+        </Box>
 
         {/* First paragraph: Explicit intent confirmation */}
         <Typography variant="body1" sx={{ mb: 3, fontSize: '1.1rem', lineHeight: 1.8 }}>
           {introText}
         </Typography>
+
+        {/* Enhanced Route Data Section */}
+        <Box sx={{ mb: 3 }}>
+          <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Total Routes
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {destinations.length}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Daily Departures
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {flightsFrom.length}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Weekly Flights
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {flightsFrom.length * 7}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Delay Rate
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Placeholder - Data coming soon</strong>
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Box>
+
+        {/* Top Destinations for Airline */}
+        {destinationsWithDisplay.length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
+              Top Destinations for {airline.name}
+            </Typography>
+            <Grid container spacing={2}>
+              {destinationsWithDisplay
+                .sort((a, b) => {
+                  const aFlights = flightsFrom.filter(f => f.destination_iata === a.iata).length;
+                  const bFlights = flightsFrom.filter(f => f.destination_iata === b.iata).length;
+                  return bFlights - aFlights;
+                })
+                .slice(0, 10)
+                .map((dest) => {
+                  const destFlights = flightsFrom.filter(f => f.destination_iata === dest.iata);
+                  const routeSlug = `${iata.toLowerCase()}-${dest.iata.toLowerCase()}`;
+                  return (
+                    <Grid item xs={12} sm={6} md={4} key={dest.iata}>
+                      <Paper
+                        component={Link}
+                        href={`/airlines/${code.toLowerCase()}/${routeSlug}`}
+                        sx={{
+                          p: 2,
+                          textDecoration: 'none',
+                          display: 'block',
+                          height: '100%',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          '&:hover': {
+                            bgcolor: 'action.hover',
+                            borderColor: 'primary.main',
+                            boxShadow: 2,
+                          },
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          {dest.display}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {destFlights.length} daily flight{destFlights.length !== 1 ? 's' : ''}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          ~{destFlights.length * 7} flights/week
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  );
+                })}
+            </Grid>
+          </Box>
+        )}
 
         {/* Summary Stat Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -908,7 +1013,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
               <Box
                 dangerouslySetInnerHTML={{ __html: manualContent }}
                 sx={{
-                  '& h1, & h2, & h3, & h4, & h5, & h6': {
+                  '& h1': {
+                    // Hide H1 in manualContent since we already have one in the page
+                    display: 'none',
+                  },
+                  '& h2, & h3, & h4, & h5, & h6': {
                     mt: 2,
                     mb: 1,
                     '&:first-of-type': { mt: 0 },

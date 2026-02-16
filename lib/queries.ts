@@ -718,6 +718,14 @@ export async function getRouteWithMetadata(origin: string, destination: string):
 
 // Flight Queries
 export async function getFlightsByRoute(origin: string, destination: string): Promise<Flight[]> {
+  const cacheKey = CacheKeys.flightsByRoute(origin, destination);
+  
+  // Try cache first
+  const cached = await getCache<Flight[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   const db = await getDatabase();
   const collection = db.collection<any>('departures');
   const flights = await collection
@@ -729,7 +737,7 @@ export async function getFlightsByRoute(origin: string, destination: string): Pr
     .limit(100)
     .toArray();
   
-  return flights.map(flight => ({
+  const result = flights.map(flight => ({
     _id: flight._id,
     flight_number: flight.flight_number,
     airline_iata: flight.airline_iata,
@@ -741,6 +749,11 @@ export async function getFlightsByRoute(origin: string, destination: string): Pr
     arrival_time: flight.arrival_time,
     duration: flight.duration_minutes ? `${Math.floor(flight.duration_minutes / 60)}h ${flight.duration_minutes % 60}m` : undefined,
   }));
+  
+  // Cache the result
+  await setCache(cacheKey, result, CacheTTL.flights);
+  
+  return result;
 }
 
 export async function getDepartures(iata: string, limit: number = 50): Promise<Flight[]> {
@@ -790,6 +803,14 @@ export async function getArrivals(iata: string, limit: number = 50): Promise<Fli
 }
 
 export async function getFlightsFromAirport(iata: string): Promise<Flight[]> {
+  const cacheKey = CacheKeys.departures(iata, 500);
+  
+  // Try cache first
+  const cached = await getCache<Flight[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   const db = await getDatabase();
   const collection = db.collection<any>('departures');
   const flights = await collection
@@ -798,7 +819,7 @@ export async function getFlightsFromAirport(iata: string): Promise<Flight[]> {
     .limit(500)
     .toArray();
   
-  return flights.map(flight => ({
+  const result = flights.map(flight => ({
     _id: flight._id,
     flight_number: flight.flight_number,
     airline_iata: flight.airline_iata,
@@ -810,9 +831,22 @@ export async function getFlightsFromAirport(iata: string): Promise<Flight[]> {
     arrival_time: flight.arrival_time,
     duration: flight.duration_minutes ? `${Math.floor(flight.duration_minutes / 60)}h ${flight.duration_minutes % 60}m` : undefined,
   }));
+  
+  // Cache the result
+  await setCache(cacheKey, result, CacheTTL.departures);
+  
+  return result;
 }
 
 export async function getFlightsToAirport(iata: string): Promise<Flight[]> {
+  const cacheKey = CacheKeys.arrivals(iata, 500);
+  
+  // Try cache first
+  const cached = await getCache<Flight[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   const db = await getDatabase();
   const collection = db.collection<any>('arrivals');
   const flights = await collection
@@ -821,7 +855,7 @@ export async function getFlightsToAirport(iata: string): Promise<Flight[]> {
     .limit(500)
     .toArray();
   
-  return flights.map(flight => ({
+  const result = flights.map(flight => ({
     _id: flight._id,
     flight_number: flight.flight_number,
     airline_iata: flight.airline_iata,
@@ -833,6 +867,11 @@ export async function getFlightsToAirport(iata: string): Promise<Flight[]> {
     arrival_time: flight.arrival_time,
     duration: flight.duration_minutes ? `${Math.floor(flight.duration_minutes / 60)}h ${flight.duration_minutes % 60}m` : undefined,
   }));
+  
+  // Cache the result
+  await setCache(cacheKey, result, CacheTTL.arrivals);
+  
+  return result;
 }
 
 // Airline Queries
@@ -1114,6 +1153,14 @@ export async function getAllAirlines(): Promise<Airline[]> {
 }
 
 export async function getAirlineRoutes(airlineCode: string): Promise<Route[]> {
+  const cacheKey = CacheKeys.airlineRoutes(airlineCode);
+  
+  // Try cache first
+  const cached = await getCache<Route[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   const db = await getDatabase();
   const departuresCollection = db.collection<any>('departures');
   const routesCollection = db.collection<any>('routes');
@@ -1150,7 +1197,12 @@ export async function getAirlineRoutes(airlineCode: string): Promise<Route[]> {
     }
   }
   
-  return routes.sort((a, b) => (a.destination_city || '').localeCompare(b.destination_city || ''));
+  const result = routes.sort((a, b) => (a.destination_city || '').localeCompare(b.destination_city || ''));
+  
+  // Cache the result (6 hours for airline routes)
+  await setCache(cacheKey, result, CacheTTL.allAirlines);
+  
+  return result;
 }
 
 export async function getAirlineFlightsFromAirport(
