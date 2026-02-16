@@ -323,13 +323,40 @@ export default async function FlightRoutePage({ params }: PageProps) {
     // Import components needed
     const AirportFlightsTabs = (await import('@/components/flights/AirportFlightsTabs')).default;
 
+    // Check if page exists in pages_editorial collection
+    const editorialSlug = `flights/${iata.toLowerCase()}`;
+    const editorialPage = await getEditorialPage(editorialSlug);
+
+    // Get manualContent and FAQs from content object (new structure) or legacy fields
+    const manualContent = editorialPage?.content?.manualContent || editorialPage?.manualContent;
+    const editorialFAQs = editorialPage?.content?.faqs || editorialPage?.faqs;
+
+    // Check if editorial page has content (headings, paragraphs, FAQs, or manualContent)
+    const hasEditorialContent = editorialPage && (
+      (editorialPage.content?.headings && (
+        (editorialPage.content.headings.h1 && editorialPage.content.headings.h1.length > 0) ||
+        (editorialPage.content.headings.h2 && editorialPage.content.headings.h2.length > 0) ||
+        (editorialPage.content.headings.h3 && editorialPage.content.headings.h3.length > 0)
+      )) ||
+      (editorialPage.headings && editorialPage.headings.length > 0) ||
+      (editorialPage.content?.paragraphs && editorialPage.content.paragraphs.length > 0) ||
+      (editorialPage.paragraphs && editorialPage.paragraphs.length > 0) ||
+      (editorialFAQs && editorialFAQs.length > 0) ||
+      !!manualContent
+    );
+
     // Generate FAQs for airport page
-    const airportFAQs = await generateAirportFAQs(
+    const generatedAirportFAQs = await generateAirportFAQs(
       airport,
       departures,
       arrivals,
       destinations.length
     );
+
+    // Use editorial FAQs if available, otherwise use generated FAQs
+    const airportFAQs = hasEditorialContent && editorialFAQs && editorialFAQs.length > 0 
+      ? editorialFAQs 
+      : generatedAirportFAQs;
 
     // Generate FAQ schema
     const faqSchema = generateFAQPageSchema(
@@ -530,6 +557,54 @@ export default async function FlightRoutePage({ params }: PageProps) {
           <BookingInsightsSection insights={bookingInsights} airportName={airportDisplay} />
         )}
 
+        {/* Manual Content from pages_editorial - Display above FAQs */}
+        {manualContent && (
+          <Box sx={{ mt: 4, mb: 4 }}>
+            <Paper sx={{ p: 3 }}>
+              <Box
+                dangerouslySetInnerHTML={{ __html: manualContent }}
+                sx={{
+                  '& h1, & h2, & h3, & h4, & h5, & h6': {
+                    mt: 2,
+                    mb: 1,
+                    '&:first-of-type': { mt: 0 },
+                  },
+                  '& p': {
+                    mb: 2,
+                    lineHeight: 1.8,
+                  },
+                  '& ul, & ol': {
+                    mb: 2,
+                    pl: 3,
+                  },
+                  '& li': {
+                    mb: 1,
+                  },
+                  '& a': {
+                    color: 'primary.main',
+                    textDecoration: 'underline',
+                  },
+                  '& table': {
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    mb: 2,
+                  },
+                  '& td, & th': {
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    p: 1,
+                    textAlign: 'left',
+                  },
+                  '& th': {
+                    backgroundColor: 'action.hover',
+                    fontWeight: 'bold',
+                  },
+                }}
+              />
+            </Paper>
+          </Box>
+        )}
+
         {/* FAQ Section */}
         {airportFAQs.length > 0 && (
           <Box sx={{ mt: 4 }}>
@@ -542,9 +617,11 @@ export default async function FlightRoutePage({ params }: PageProps) {
                   <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
                     {faq.question}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {faq.answer}
-                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    dangerouslySetInnerHTML={{ __html: faq.answer }}
+                  />
                 </Box>
               ))}
             </Paper>
@@ -1224,6 +1301,21 @@ export default async function FlightRoutePage({ params }: PageProps) {
                   color: 'primary.main',
                   textDecoration: 'underline',
                 },
+                '& table': {
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  mb: 2,
+                },
+                '& td, & th': {
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  p: 1,
+                  textAlign: 'left',
+                },
+                '& th': {
+                  backgroundColor: 'action.hover',
+                  fontWeight: 'bold',
+                },
               }}
             />
           </Paper>
@@ -1242,9 +1334,11 @@ export default async function FlightRoutePage({ params }: PageProps) {
                   <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
                     {faq.question}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {faq.answer}
-                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    dangerouslySetInnerHTML={{ __html: faq.answer }}
+                  />
                 </Box>
               ))}
             </Paper>

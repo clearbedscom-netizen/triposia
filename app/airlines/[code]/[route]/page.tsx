@@ -928,6 +928,21 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                     color: 'primary.main',
                     textDecoration: 'underline',
                   },
+                  '& table': {
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    mb: 2,
+                  },
+                  '& td, & th': {
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    p: 1,
+                    textAlign: 'left',
+                  },
+                  '& th': {
+                    backgroundColor: 'action.hover',
+                    fontWeight: 'bold',
+                  },
                 }}
               />
             </Paper>
@@ -946,9 +961,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                   <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
                     {faq.question}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {faq.answer}
-                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    dangerouslySetInnerHTML={{ __html: faq.answer }}
+                  />
                 </Box>
               ))}
             </Paper>
@@ -2596,9 +2613,11 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                 <Typography variant="h3" sx={{ fontSize: '1.25rem', mb: 1, textAlign: 'left' }}>
                   {faq.question}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {faq.answer}
-                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary"
+                  dangerouslySetInnerHTML={{ __html: faq.answer }}
+                />
               </Box>
             ))}
           </Paper>
