@@ -44,7 +44,6 @@ import { getAirlinesForRoute, formatAirportAnchor, formatAirlineAnchor, getRelat
 import { getEnhancedRelatedAirports, getAirlinePagesForAirport, getTopRoutePages, getCountryHubLink } from '@/lib/enhancedLinking';
 import RelatedPages from '@/components/ui/RelatedPages';
 import RelatedLinksSection from '@/components/ui/RelatedLinksSection';
-import AirportToolPanel from '@/components/flights/AirportToolPanel';
 import RouteDataVisualizationLazy from '@/components/flights/RouteDataVisualizationLazy';
 import EnhancedAirportMap from '@/components/maps/EnhancedAirportMap';
 import AirportSummarySection from '@/components/flights/AirportSummarySection';
@@ -633,7 +632,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           {introText}
         </Typography>
 
-        {/* Airport Summary Section */}
+        {/* 1. Airport Summary Section - Key Metrics */}
         <AirportSummarySection
           totalDestinations={airport?.destinations_count || 0}
           totalAirlines={airlineList?.length || 0}
@@ -643,30 +642,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           originIata={iata}
         />
 
-        {/* Tool-First Airport Panel with Filters and Sorting */}
-        {routesWithWeekly.length > 0 && (
-          <Box id="filters-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
-            <AirportToolPanel
-              routes={routesWithWeekly}
-              airlines={airlineList}
-              originIata={iata}
-              originDisplay={airportDisplay}
-              originAirport={airport}
-              routeAirlinesMap={(() => {
-                // Create airline-route mapping for filtering
-                const map = new Map<string, string[]>();
-                routesWithWeekly.forEach(route => {
-                  const routeFlights = departures.filter(f => f.destination_iata === route.iata);
-                  const airlines = Array.from(new Set(routeFlights.map(f => f.airline_iata).filter(Boolean)));
-                  map.set(route.iata, airlines);
-                });
-                return map;
-              })()}
-            />
-          </Box>
-        )}
-
-        {/* Visual Analytics Block */}
+        {/* 2. Visual Analytics Block - Charts and Data Visualization */}
         {routesWithWeekly.length > 0 && (
           <Box id="analytics-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <VisualAnalyticsBlock
@@ -682,7 +658,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* Routes by Airline Group */}
+        {/* 3. Routes by Airline Group - Organized by Airline */}
         {airlineGroups.length > 0 && (
           <Box id="routes-by-airline-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <RoutesByAirlineGroup
@@ -692,18 +668,18 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* Routes by Region Group */}
+        {/* 4. Routes by Region Group - Organized by Geographic Region */}
         {regionGroups.length > 0 && (
           <Box id="routes-by-region-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <RoutesByRegionGroup
               regionGroups={regionGroups}
               originIata={iata}
-              originCountry={airport.country}
+              originCountry={airport?.country}
             />
           </Box>
         )}
 
-        {/* Sortable Route Table */}
+        {/* 5. Sortable Route Table - Comprehensive Table View with All Routes */}
         {routesWithWeekly.length > 0 && (
           <Box id="routes-table-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <SortableRouteTable
@@ -713,7 +689,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* Flight Schedule - Calendar View */}
+        {/* 6. Flight Schedule - Calendar View */}
         {departures.length > 0 && (
           <Box id="schedule-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: { xs: 1.5, sm: 2 }, textAlign: 'left' }}>

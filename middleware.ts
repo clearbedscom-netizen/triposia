@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Known scraper/bot user agents to block
+// Note: curl and wget are allowed for testing/debugging purposes
 const SCRAPER_USER_AGENTS = [
   'Scrapy',
   'Scraper',
-  'curl',
-  'wget',
+  // 'curl', // Allow curl for testing
+  // 'wget', // Allow wget for testing
   'python-requests',
   'Python-urllib',
   'go-http-client',
@@ -41,9 +42,9 @@ const SCRAPER_USER_AGENTS = [
   'Harvest',
   'Crawler',
   'Spider',
-  'Bot',
-  'bot',
-  'BOT',
+  // 'Bot', // Too generic - handled separately
+  // 'bot', // Too generic - handled separately
+  // 'BOT', // Too generic - handled separately
   // Add specific scrapers
   'scrapy',
   'ScrapyBot',
@@ -185,9 +186,18 @@ function isScraper(userAgent: string): boolean {
     return false; // Not a scraper if it's an allowed bot
   }
   
-  // Block requests without user agent (except for API routes which may not send UA)
+  // Allow curl and wget for testing/debugging (common tools for API testing)
+  if (userAgent) {
+    const uaLower = userAgent.toLowerCase();
+    if (uaLower.includes('curl') || uaLower.includes('wget')) {
+      return false; // Allow curl and wget
+    }
+  }
+  
+  // Allow requests without user agent for API routes and internal requests
+  // Many legitimate API clients don't send user agents
   if (!userAgent || userAgent.trim() === '') {
-    return true; // Block requests without user agent
+    return false; // Don't block requests without user agent (too aggressive)
   }
   
   const uaLower = userAgent.toLowerCase();
