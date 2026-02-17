@@ -439,6 +439,24 @@ export default async function FlightRoutePage({ params }: PageProps) {
     // Calculate flights_per_week, airline_count, distance, and other route data
     const { calculateDistance } = await import('@/lib/distance');
     
+    // Helper function to safely extract daily flights from flights_per_day string
+    const parseFlightsPerDay = (flightsPerDay: any): number => {
+      try {
+        // Early returns for invalid values
+        if (flightsPerDay === null || flightsPerDay === undefined) return 0;
+        if (typeof flightsPerDay !== 'string') return 0;
+        if (flightsPerDay.length === 0) return 0;
+        
+        // At this point, TypeScript knows flightsPerDay is a non-empty string
+        // But we'll still use optional chaining for extra safety
+        const match = String(flightsPerDay).match(/(\d+(?:\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
+      } catch (error) {
+        // If anything goes wrong, return 0
+        return 0;
+      }
+    };
+
     const routesWithWeekly = (await Promise.all(destinationsWithDisplay
       .filter(dest => dest && dest.iata && dest.flights_per_day) // Filter out null/undefined destinations and routes without flights_per_day
       .map(async (dest) => {
@@ -447,20 +465,8 @@ export default async function FlightRoutePage({ params }: PageProps) {
           return null;
         }
         
-        // Safely parse flights_per_day - ensure it's a string
-        const flightsPerDay = dest?.flights_per_day;
-        if (!flightsPerDay || typeof flightsPerDay !== 'string' || flightsPerDay === null) {
-          // If flights_per_day is not a valid string, skip this route
-          return null;
-        }
-        
-        // Double-check before calling match (defensive programming)
-        if (flightsPerDay === null || typeof flightsPerDay !== 'string') {
-          return null;
-        }
-        
-        const match = flightsPerDay.match(/(\d+(?:\.\d+)?)/);
-      const daily = match ? parseFloat(match[1]) : 0;
+        // Safely parse flights_per_day using helper function
+        const daily = parseFlightsPerDay(dest.flights_per_day);
       const routeFlights = (departures || []).filter(f => f && f.destination_iata === dest.iata);
       const uniqueAirlines = new Set(routeFlights.map(f => f?.airline_iata).filter(Boolean));
       
