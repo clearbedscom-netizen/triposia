@@ -49,7 +49,8 @@ import RouteDataVisualizationLazy from '@/components/flights/RouteDataVisualizat
 import EnhancedAirportMap from '@/components/maps/EnhancedAirportMap';
 import AirportSummarySection from '@/components/flights/AirportSummarySection';
 import RoutesByAirlineGroup from '@/components/flights/RoutesByAirlineGroup';
-import RoutesByRegionGroup, { categorizeByRegion } from '@/components/flights/RoutesByRegionGroup';
+import RoutesByRegionGroup from '@/components/flights/RoutesByRegionGroup';
+import { categorizeByRegion } from '@/lib/regionUtils';
 import SortableRouteTable from '@/components/flights/SortableRouteTable';
 import VisualAnalyticsBlock from '@/components/flights/VisualAnalyticsBlock';
 import { formatAirportDisplay, formatAirportName } from '@/lib/formatting';
