@@ -411,9 +411,15 @@ export default async function FlightRoutePage({ params }: PageProps) {
     // Calculate flights_per_week, airline_count, distance, and other route data
     const { calculateDistance } = await import('@/lib/distance');
     
-    const routesWithWeekly = await Promise.all(destinationsWithDisplay.map(async (dest) => {
-      const match = dest.flights_per_day?.match(/(\d+(?:\.\d+)?)/);
-      const daily = match ? parseFloat(match[1]) : 0;
+    const routesWithWeekly = (await Promise.all(destinationsWithDisplay
+      .filter(dest => dest && dest.iata) // Filter out null/undefined destinations
+      .map(async (dest) => {
+        // Safely parse flights_per_day
+        const flightsPerDay = dest?.flights_per_day;
+        const match = flightsPerDay && typeof flightsPerDay === 'string' 
+          ? flightsPerDay.match(/(\d+(?:\.\d+)?)/)
+          : null;
+        const daily = match ? parseFloat(match[1]) : 0;
       const routeFlights = (departures || []).filter(f => f && f.destination_iata === dest.iata);
       const uniqueAirlines = new Set(routeFlights.map(f => f?.airline_iata).filter(Boolean));
       
@@ -455,12 +461,13 @@ export default async function FlightRoutePage({ params }: PageProps) {
         average_duration: routeData?.average_duration || routeData?.typical_duration,
         aircraft_types: routeData?.aircraft_types,
         reliability: routeData?.reliability,
-        country: dest.country,
+        country: dest?.country,
         lat: destAirport?.lat,
         lng: destAirport?.lng,
         route_growth,
       };
-    }));
+    })))
+    .filter(route => route && route.iata); // Filter out any null/undefined routes
 
     // Prepare data for new components
     // Calculate total weekly flights
