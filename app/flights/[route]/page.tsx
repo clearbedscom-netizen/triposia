@@ -440,19 +440,26 @@ export default async function FlightRoutePage({ params }: PageProps) {
     const { calculateDistance } = await import('@/lib/distance');
     
     // Helper function to safely extract daily flights from flights_per_day string
+    // This function MUST never call .match() on null/undefined
     const parseFlightsPerDay = (flightsPerDay: any): number => {
+      // Multiple layers of null/undefined checks
+      if (flightsPerDay == null) return 0; // Checks both null and undefined
+      if (typeof flightsPerDay !== 'string') return 0;
+      
       try {
-        // Early returns for invalid values
-        if (flightsPerDay === null || flightsPerDay === undefined) return 0;
-        if (typeof flightsPerDay !== 'string') return 0;
-        if (flightsPerDay.length === 0) return 0;
+        // Convert to string one more time as final safeguard
+        const str = String(flightsPerDay);
+        if (!str || str.length === 0) return 0;
         
-        // At this point, TypeScript knows flightsPerDay is a non-empty string
-        // But we'll still use optional chaining for extra safety
-        const match = String(flightsPerDay).match(/(\d+(?:\.\d+)?)/);
-        return match ? parseFloat(match[1]) : 0;
+        // Only call .match() if we're absolutely sure str is a non-empty string
+        const match = str.match(/(\d+(?:\.\d+)?)/);
+        if (!match || !match[1]) return 0;
+        
+        const parsed = parseFloat(match[1]);
+        return isNaN(parsed) ? 0 : parsed;
       } catch (error) {
         // If anything goes wrong, return 0
+        console.error('Error parsing flights_per_day:', error, flightsPerDay);
         return 0;
       }
     };
@@ -503,8 +510,14 @@ export default async function FlightRoutePage({ params }: PageProps) {
         ? dest.flights_per_day
         : '0 flights';
       
+      // Create a new object without spreading dest first, to avoid null values
       return {
-        ...dest,
+        iata: dest.iata,
+        city: dest.city,
+        airport: dest.airport,
+        display: dest.display,
+        is_domestic: dest.is_domestic,
+        country: dest.country,
         flights_per_day: safeFlightsPerDay, // Explicitly set to ensure it's never null
         flights_per_week: Math.round(daily * 7),
         airline_count: uniqueAirlines.size,
@@ -514,7 +527,6 @@ export default async function FlightRoutePage({ params }: PageProps) {
         average_duration: routeData?.average_duration || routeData?.typical_duration,
         aircraft_types: routeData?.aircraft_types,
         reliability: routeData?.reliability,
-        country: dest?.country,
         lat: destAirport?.lat,
         lng: destAirport?.lng,
         route_growth,
