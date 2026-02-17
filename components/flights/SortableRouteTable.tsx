@@ -15,14 +15,24 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+  Grid,
+  Button,
 } from '@mui/material';
 import TableViewIcon from '@mui/icons-material/TableView';
 import FlightIcon from '@mui/icons-material/Flight';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import RemoveIcon from '@mui/icons-material/Remove';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ClearIcon from '@mui/icons-material/Clear';
 import Link from 'next/link';
 import ReliabilityBadge from './ReliabilityBadge';
+import { categorizeByRegion } from '@/lib/regionUtils';
 
 interface Route {
   iata: string;
@@ -37,22 +47,39 @@ interface Route {
   route_growth?: 'growing' | 'stable' | 'declining';
   popularity_score?: number;
   airline_count?: number;
+  country?: string;
+  is_domestic?: boolean;
 }
 
 type SortField = 'destination' | 'airline' | 'frequency' | 'distance' | 'duration' | 'popularity';
 type SortDirection = 'asc' | 'desc';
 
+interface Airline {
+  code: string;
+  name: string;
+  iata?: string;
+}
+
 interface SortableRouteTableProps {
   routes: Route[];
   originIata: string;
+  airlines?: Airline[];
+  originCountry?: string;
+  routeAirlinesMap?: Map<string, string[]>; // Map of route IATA to airline codes
 }
 
 export default function SortableRouteTable({
   routes,
   originIata,
+  airlines = [],
+  originCountry,
+  routeAirlinesMap,
 }: SortableRouteTableProps) {
   const [sortField, setSortField] = useState<SortField>('frequency');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [selectedAirline, setSelectedAirline] = useState<string>('all');
+  const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [routeType, setRouteType] = useState<string>('all'); // 'all', 'direct', 'connecting'
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -63,8 +90,49 @@ export default function SortableRouteTable({
     }
   };
 
+  // Get unique regions from routes
+  const regions = useMemo(() => {
+    if (!routes.length) return [];
+    const regionGroups = categorizeByRegion(routes, originCountry);
+    return regionGroups.map(g => g.name);
+  }, [routes, originCountry]);
+
+  // Filter routes based on selected filters
+  const filteredRoutes = useMemo(() => {
+    let filtered = [...routes];
+
+    // Filter by airline
+    if (selectedAirline !== 'all' && routeAirlinesMap) {
+      filtered = filtered.filter(route => {
+        const routeAirlines = routeAirlinesMap.get(route.iata) || [];
+        return routeAirlines.some(code => 
+          code.toLowerCase() === selectedAirline.toLowerCase()
+        );
+      });
+    }
+
+    // Filter by region
+    if (selectedRegion !== 'all') {
+      const regionGroups = categorizeByRegion(routes, originCountry);
+      const targetGroup = regionGroups.find(g => g.name === selectedRegion);
+      if (targetGroup) {
+        const targetIatas = new Set(targetGroup.routes.map(r => r.iata));
+        filtered = filtered.filter(r => targetIatas.has(r.iata));
+      }
+    }
+
+    // Filter by route type (direct vs connecting)
+    // Note: This is a placeholder - would need actual route data to determine if connecting
+    if (routeType === 'direct') {
+      // Assume all routes are direct for now (would need actual data)
+      filtered = filtered.filter(r => !r.seasonal); // Filter out seasonal as proxy
+    }
+
+    return filtered;
+  }, [routes, selectedAirline, selectedRegion, routeType, routeAirlinesMap, originCountry]);
+
   const sortedRoutes = useMemo(() => {
-    return [...routes].sort((a, b) => {
+    return [...filteredRoutes].sort((a, b) => {
       let aValue: any;
       let bValue: any;
 
@@ -108,7 +176,15 @@ export default function SortableRouteTable({
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [routes, sortField, sortDirection]);
+  }, [filteredRoutes, sortField, sortDirection]);
+
+  const hasActiveFilters = selectedAirline !== 'all' || selectedRegion !== 'all' || routeType !== 'all';
+
+  const clearFilters = () => {
+    setSelectedAirline('all');
+    setSelectedRegion('all');
+    setRouteType('all');
+  };
 
   const getGrowthIcon = (growth?: string) => {
     switch (growth) {
@@ -123,13 +199,85 @@ export default function SortableRouteTable({
 
   return (
     <Paper sx={{ p: { xs: 2, md: 3 }, mb: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <TableViewIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          All Routes
-        </Typography>
-        <Chip label={`${routes.length} routes`} size="small" variant="outlined" />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TableViewIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            All Routes
+          </Typography>
+          <Chip 
+            label={`${filteredRoutes.length}${hasActiveFilters ? ` of ${routes.length}` : ''} routes`} 
+            size="small" 
+            variant="outlined" 
+            color={hasActiveFilters ? 'primary' : 'default'}
+          />
+        </Box>
+        {hasActiveFilters && (
+          <Button
+            startIcon={<ClearIcon />}
+            onClick={clearFilters}
+            size="small"
+            variant="outlined"
+          >
+            Clear Filters
+          </Button>
+        )}
       </Box>
+
+      {/* Filters */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {airlines.length > 0 && (
+          <Grid item xs={12} sm={6} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Filter by Airline</InputLabel>
+              <Select
+                value={selectedAirline}
+                label="Filter by Airline"
+                onChange={(e: SelectChangeEvent) => setSelectedAirline(e.target.value)}
+              >
+                <MenuItem value="all">All Airlines</MenuItem>
+                {airlines.map(airline => (
+                  <MenuItem key={airline.code} value={airline.code.toLowerCase()}>
+                    {airline.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
+        {regions.length > 0 && (
+          <Grid item xs={12} sm={6} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Filter by Region</InputLabel>
+              <Select
+                value={selectedRegion}
+                label="Filter by Region"
+                onChange={(e: SelectChangeEvent) => setSelectedRegion(e.target.value)}
+              >
+                <MenuItem value="all">All Regions</MenuItem>
+                {regions.map(region => (
+                  <MenuItem key={region} value={region}>
+                    {region}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
+        <Grid item xs={12} sm={6} md={4}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Route Type</InputLabel>
+            <Select
+              value={routeType}
+              label="Route Type"
+              onChange={(e: SelectChangeEvent) => setRouteType(e.target.value)}
+            >
+              <MenuItem value="all">All Routes</MenuItem>
+              <MenuItem value="direct">Direct Only</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
 
       <TableContainer>
         <Table>

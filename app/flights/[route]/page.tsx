@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { Container, Typography, Box, Grid, Paper, Card, CardContent } from '@mui/material';
 import { getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getAirline, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getDestinationData, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getApoisByAirport } from '@/lib/queries';
-import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateFlightListingSchema, generatePriceCalendarSchema, generateFlightScheduleSchema, generateFAQPageSchema, generateAirportDeparturesListingSchema, generateAirportDeparturesScheduleSchema, generateAirportArrivalsListingSchema, generateAirportArrivalsScheduleSchema, generateAirportFlightsListSchema, generateAirlineScheduleSchema, parseRouteSlug, generateRouteListSchema } from '@/lib/seo';
+import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateFlightListingSchema, generatePriceCalendarSchema, generateFlightScheduleSchema, generateFAQPageSchema, generateAirportDeparturesListingSchema, generateAirportDeparturesScheduleSchema, generateAirportArrivalsListingSchema, generateAirportArrivalsScheduleSchema, generateAirportFlightsListSchema, generateAirlineScheduleSchema, parseRouteSlug, generateRouteListSchema, generateAirportSchema } from '@/lib/seo';
 import { 
   calculateReliability, 
   extractAircraftTypes, 
@@ -100,9 +100,60 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Format airport name with city
     const airportDisplay = await formatAirportName(iata, airport, cityFromRoute);
     
-    const title = metaTitle || (airport
-      ? `Flights from ${airportDisplay} - ${airport.destinations_count} destinations`
-      : `Flights from ${iata}`);
+    // Generate optimized title: "Direct Flights from [Airport Name] ([Code]) - [Count] Destinations 2026"
+    // Keep under 55 characters (before " | Triposia" brand name is added by root layout)
+    const generateOptimizedTitle = (): string => {
+      if (metaTitle) return metaTitle;
+      
+      if (!airport) return `Direct Flights from ${iata} 2026`;
+      
+      const destinationsCount = airport.destinations_count || 0;
+      
+      // Prefer city name (usually shorter and more natural), fallback to airport name
+      const preferredName = airport.city || airport.name || iata;
+      const fallbackName = airport.name || airport.city || iata;
+      
+      // Try full format first: "Direct Flights from [Name] ([Code]) - [Count] Destinations 2026"
+      const fullFormat = `Direct Flights from ${preferredName} (${iata}) - ${destinationsCount} Destinations 2026`;
+      
+      if (fullFormat.length <= 55) {
+        return fullFormat;
+      }
+      
+      // Try with fallback name if different
+      if (fallbackName !== preferredName) {
+        const fallbackFormat = `Direct Flights from ${fallbackName} (${iata}) - ${destinationsCount} Destinations 2026`;
+        if (fallbackFormat.length <= 55) {
+          return fallbackFormat;
+        }
+      }
+      
+      // Use compact format: "Direct Flights from [Name] ([Code]) - [Count] 2026"
+      const compactFormat = `Direct Flights from ${preferredName} (${iata}) - ${destinationsCount} 2026`;
+      
+      if (compactFormat.length <= 55) {
+        return compactFormat;
+      }
+      
+      // Try compact with fallback name
+      if (fallbackName !== preferredName) {
+        const compactFallback = `Direct Flights from ${fallbackName} (${iata}) - ${destinationsCount} 2026`;
+        if (compactFallback.length <= 55) {
+          return compactFallback;
+        }
+      }
+      
+      // Last resort: truncate name to fit
+      const compactFixed = `Direct Flights from  (${iata}) - ${destinationsCount} 2026`.length;
+      const maxNameLength = Math.max(1, 55 - compactFixed);
+      const truncatedName = preferredName.length > maxNameLength 
+        ? preferredName.substring(0, maxNameLength - 3) + '...'
+        : preferredName;
+      
+      return `Direct Flights from ${truncatedName} (${iata}) - ${destinationsCount} 2026`;
+    };
+    
+    const title = generateOptimizedTitle();
     
     const description = metaDescription || (airport
       ? `Complete flight information for ${airportDisplay}: ${airport.destinations_count} destinations, ${airport.departure_count} daily departures, ${airport.arrival_count} daily arrivals. View all flights from and to ${airportDisplay}.`
@@ -597,6 +648,8 @@ export default async function FlightRoutePage({ params }: PageProps) {
         />
         
         <JsonLd data={breadcrumbData} />
+        {/* Airport Schema */}
+        {airport && <JsonLd data={generateAirportSchema(iata, airport.name || airportDisplay, airport.city, airport.country)} />}
         {allFlightsListSchema && <JsonLd data={allFlightsListSchema} />}
         {departuresListingSchema && <JsonLd data={departuresListingSchema} />}
         {departuresScheduleSchema && <JsonLd data={departuresScheduleSchema} />}
@@ -617,7 +670,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
             wordBreak: 'break-word',
           }}
         >
-          All Flights from {airportDisplay}
+          {airport?.name || airportDisplay}
         </Typography>
 
         <Typography 
@@ -632,7 +685,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           {introText}
         </Typography>
 
-        {/* 1. Airport Summary Section - Key Metrics */}
+        {/* 1. Airport Summary Section - Key Metrics with Prominent Header */}
         <AirportSummarySection
           totalDestinations={airport?.destinations_count || 0}
           totalAirlines={airlineList?.length || 0}
@@ -640,6 +693,8 @@ export default async function FlightRoutePage({ params }: PageProps) {
           topRoutes={top3Routes || []}
           topAirlines={top3Airlines || []}
           originIata={iata}
+          airportName={airport?.name}
+          airportCity={airport?.city}
         />
 
         {/* 2. Visual Analytics Block - Charts and Data Visualization */}
@@ -685,6 +740,18 @@ export default async function FlightRoutePage({ params }: PageProps) {
             <SortableRouteTable
               routes={routesWithWeekly}
               originIata={iata}
+              airlines={airlineList}
+              originCountry={airport?.country}
+              routeAirlinesMap={(() => {
+                // Create airline-route mapping for filtering
+                const map = new Map<string, string[]>();
+                routesWithWeekly.forEach(route => {
+                  const routeFlights = departures.filter(f => f.destination_iata === route.iata);
+                  const airlines = Array.from(new Set(routeFlights.map(f => f.airline_iata).filter(Boolean)));
+                  map.set(route.iata, airlines);
+                });
+                return map;
+              })()}
             />
           </Box>
         )}

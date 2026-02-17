@@ -21,7 +21,7 @@ export default function StickyCallToAction() {
       <Paper
         component={Link}
         href="tel:+18883519011"
-        elevation={1}
+        elevation={2}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -30,13 +30,18 @@ export default function StickyCallToAction() {
           borderRadius: 2,
           textDecoration: 'none',
           color: 'inherit',
+          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.12) 100%)',
           bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'primary.light',
           maxWidth: { xs: '100%', sm: '600px' },
           width: '100%',
           transition: 'all 0.2s ease',
           '&:hover': {
-            boxShadow: 4,
+            boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)',
             transform: 'translateY(-2px)',
+            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0.16) 100%)',
+            borderColor: 'primary.main',
           },
         }}
       >
@@ -71,7 +76,7 @@ export default function StickyCallToAction() {
             sx={{
               fontSize: { xs: '1rem', sm: '1.125rem' },
               fontWeight: 600,
-              color: 'text.primary',
+              color: 'primary.main',
               lineHeight: 1.2,
             }}
           >

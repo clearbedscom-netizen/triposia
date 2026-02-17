@@ -26,6 +26,8 @@ interface AirportSummarySectionProps {
   topRoutes: TopRoute[];
   topAirlines: TopAirline[];
   originIata: string;
+  airportName?: string;
+  airportCity?: string;
 }
 
 export default function AirportSummarySection({
@@ -35,10 +37,36 @@ export default function AirportSummarySection({
   topRoutes,
   topAirlines,
   originIata,
+  airportName,
+  airportCity,
 }: AirportSummarySectionProps) {
+  const displayName = airportName || airportCity || originIata;
+  const displayTitle = airportCity 
+    ? `${airportCity} (${originIata})` 
+    : `${airportName || originIata} (${originIata})`;
+
   return (
     <Paper sx={{ p: { xs: 2, md: 3 }, mb: 4 }}>
-      <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
+      {/* Prominent Airport Header */}
+      <Box sx={{ mb: 3, pb: 2, borderBottom: '2px solid', borderColor: 'primary.main' }}>
+        <Typography 
+          variant="h4" 
+          sx={{ 
+            fontWeight: 700, 
+            mb: 0.5,
+            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }
+          }}
+        >
+          {displayTitle}
+        </Typography>
+        {airportName && airportName !== airportCity && (
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+            {airportName}
+          </Typography>
+        )}
+      </Box>
+      
+      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: 'text.secondary' }}>
         Airport Overview
       </Typography>
       
