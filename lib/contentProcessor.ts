@@ -5,12 +5,37 @@
 import { addHeadingIds } from '@/lib/tableOfContents';
 
 /**
+ * Add cache-busting parameter to image URL
+ */
+function addCacheBustingToImageUrl(url: string, timestamp?: string): string {
+  if (!url) return url;
+  if (!timestamp) return url;
+  
+  // Skip if URL already has query parameters
+  if (url.includes('?')) {
+    // Check if it already has a cache-busting parameter
+    if (url.includes('v=') || url.includes('updated_at=') || url.includes('t=')) {
+      return url;
+    }
+    // Add cache-busting parameter
+    const timestampValue = new Date(timestamp).getTime();
+    return `${url}&v=${timestampValue}`;
+  }
+  
+  // Add cache-busting parameter
+  const timestampValue = new Date(timestamp).getTime();
+  const separator = url.includes('#') ? '&' : '?';
+  return `${url}${separator}v=${timestampValue}`;
+}
+
+/**
  * Process HTML content to ensure SEO optimization:
  * - Add alt text to images without alt attributes
  * - Ensure proper heading hierarchy
  * - Optimize links (add rel attributes, ensure proper structure)
  * - Add structured data hints
  * - Ensure semantic HTML structure
+ * - Add cache-busting to image URLs
  */
 export function processContentForSEO(
   html: string,
@@ -18,15 +43,27 @@ export function processContentForSEO(
     title?: string;
     slug?: string;
     defaultAltText?: string;
+    updatedAt?: string; // Add updatedAt for cache-busting
   } = {}
 ): string {
   if (!html) return '';
 
-  const { title, slug, defaultAltText } = options;
+  const { title, slug, defaultAltText, updatedAt } = options;
 
   // Create a temporary container to parse HTML
   // Note: This is server-side, so we'll use string manipulation
   let processed = html;
+
+  // 0. Add cache-busting to image URLs if updatedAt is provided
+  if (updatedAt) {
+    processed = processed.replace(
+      /<img([^>]*?src\s*=\s*["'])([^"']+)(["'][^>]*?)>/gi,
+      (match, before, src, after) => {
+        const updatedSrc = addCacheBustingToImageUrl(src, updatedAt);
+        return `<img${before}${updatedSrc}${after}>`;
+      }
+    );
+  }
 
   // 1. Ensure images have alt text
   processed = processed.replace(

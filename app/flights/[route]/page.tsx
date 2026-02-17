@@ -181,10 +181,10 @@ export default async function FlightRoutePage({ params }: PageProps) {
   if (/^[A-Z]{3}$/i.test(routeSlug) && !routeSlug.includes('-')) {
     const iata = routeSlug.toUpperCase();
     const airport = await getAirportSummary(iata);
-    const departures = await getFlightsFromAirport(iata);
-    const arrivals = await getFlightsToAirport(iata);
-    const routesFrom = await getRoutesFromAirport(iata);
-    const routesTo = await getRoutesToAirport(iata);
+    const departures = (await getFlightsFromAirport(iata)) || [];
+    const arrivals = (await getFlightsToAirport(iata)) || [];
+    const routesFrom = (await getRoutesFromAirport(iata)) || [];
+    const routesTo = (await getRoutesToAirport(iata)) || [];
     
     // Fetch travel decision data for origin airport
     const weather = await getWeatherByAirport(iata);
@@ -319,11 +319,17 @@ export default async function FlightRoutePage({ params }: PageProps) {
     // For origins, we need to find routes where the origin airport is the destination
     const originsWithDisplay = await Promise.all(
       origins.map(async (orig) => {
-        // Find a route where this origin airport is the destination to get its city
-        const routesToOrigin = await getRoutesToAirport(orig.iata);
-        const origCity = routesToOrigin.length > 0 ? routesToOrigin[0].destination_city : orig.city;
-        const origDisplay = await formatAirportName(orig.iata, orig.airport, origCity);
-        return { ...orig, display: origDisplay };
+        try {
+          // Find a route where this origin airport is the destination to get its city
+          const routesToOrigin = (await getRoutesToAirport(orig.iata)) || [];
+          const origCity = routesToOrigin.length > 0 ? routesToOrigin[0].destination_city : orig.city;
+          const origDisplay = await formatAirportName(orig.iata, orig.airport, origCity);
+          return { ...orig, display: origDisplay };
+        } catch (error) {
+          // Fallback if getRoutesToAirport fails
+          const origDisplay = await formatAirportName(orig.iata, orig.airport, orig.city);
+          return { ...orig, display: origDisplay };
+        }
       })
     );
 
@@ -348,8 +354,8 @@ export default async function FlightRoutePage({ params }: PageProps) {
     const routesWithWeekly = await Promise.all(destinationsWithDisplay.map(async (dest) => {
       const match = dest.flights_per_day?.match(/(\d+(?:\.\d+)?)/);
       const daily = match ? parseFloat(match[1]) : 0;
-      const routeFlights = departures.filter(f => f.destination_iata === dest.iata);
-      const uniqueAirlines = new Set(routeFlights.map(f => f.airline_iata).filter(Boolean));
+      const routeFlights = (departures || []).filter(f => f && f.destination_iata === dest.iata);
+      const uniqueAirlines = new Set(routeFlights.map(f => f?.airline_iata).filter(Boolean));
       
       // Calculate popularity score (0-10) based on frequency and airline count
       const popularityScore = Math.min(10, (daily / 10) + (uniqueAirlines.size * 0.5));

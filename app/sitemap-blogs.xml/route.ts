@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
 import { getEntityRole, getSitemapPriority } from '@/lib/entityRoles';
 import { COMPANY_INFO } from '@/lib/company';
+import { fetchPosts } from '@/lib/contentApi';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0; // Revalidate daily
+export const revalidate = 0; // Revalidate on every request for fresh data
+
+const DOMAIN_ID = 2; // Triposia.com domain ID
 
 export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || COMPANY_INFO.website;
@@ -14,39 +16,50 @@ export async function GET() {
   const urls: string[] = [];
 
   try {
-    const db = await getDatabase();
-    const blogsCollection = db.collection<any>('blogs');
-    const blogs = await blogsCollection
-      .find({ status: 'published' })
-      .limit(10000)
-      .toArray();
+    // Fetch published posts from Content API for domain_id = 2
+    const posts = await fetchPosts({ 
+      domain_id: DOMAIN_ID,
+      status: 'published',
+      limit: 10000 // Large limit to get all posts
+    });
 
-    for (const blog of blogs) {
-      if (!blog.slug) continue;
+    for (const post of posts) {
+      if (!post.slug || post.status !== 'published') continue;
 
       const role = getEntityRole('blog');
       const priority = getSitemapPriority(role);
-      // Use blog's actual date if within last 15 days, otherwise use default
-      const blogDate = blog.updated_at || blog.published_at;
-      let blogLastMod = lastMod;
-      if (blogDate) {
-        const blogDateMs = new Date(blogDate).getTime();
+      
+      // Use post's actual date if within last 15 days, otherwise use default
+      const postDate = post.updated_at || post.published_at;
+      let postLastMod = lastMod;
+      if (postDate) {
+        const postDateMs = new Date(postDate).getTime();
         const fifteenDaysAgo = Date.now() - 15 * 24 * 60 * 60 * 1000;
-        if (blogDateMs > fifteenDaysAgo) {
-          blogLastMod = new Date(blogDate).toISOString();
+        if (postDateMs > fifteenDaysAgo) {
+          postLastMod = new Date(postDate).toISOString();
         }
       }
 
       urls.push(`  <url>
-    <loc>${baseUrl}/blog/${blog.slug}</loc>
-    <lastmod>${blogLastMod}</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>${baseUrl}/blog/${post.slug}</loc>
+    <lastmod>${postLastMod}</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>${priority}</priority>
   </url>`);
     }
   } catch (error) {
-    // Blogs collection might not exist - return empty sitemap
-    console.warn('Blogs collection not found:', error);
+    // Log error but return empty sitemap to prevent breaking
+    console.error('Error fetching blog posts for sitemap:', error);
+  }
+
+  // Ensure at least one URL to prevent empty sitemap
+  if (urls.length === 0) {
+    urls.push(`  <url>
+    <loc>${baseUrl}/blog</loc>
+    <lastmod>${lastMod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>`);
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

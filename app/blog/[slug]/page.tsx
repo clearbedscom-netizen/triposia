@@ -25,7 +25,7 @@ import { CalendarToday, Person, Category as CategoryIcon, AccessTime } from '@mu
 
 // Use dynamic rendering
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 300; // Revalidate every 5 minutes for faster image updates
 
 interface PageProps {
   params: {
@@ -62,6 +62,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const wordCount = countWords(post.content_html || '');
   const readingTime = calculateReadingTime(post.content_html || '');
   
+  // Add cache-busting to featured image URL for metadata
+  const getImageUrlWithCacheBusting = (url: string | undefined): string | undefined => {
+    if (!url) return undefined;
+    const timestamp = post.updated_at || post.published_at;
+    if (!timestamp) return url;
+    
+    const timestampValue = new Date(timestamp).getTime();
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}v=${timestampValue}`;
+  };
+  
+  const featuredImageWithCacheBusting = getImageUrlWithCacheBusting(post.featured_image);
+  
   // Enhanced article-specific metadata with maximum SEO points
   const articleMetadata: Metadata = {
     ...genMeta({
@@ -70,7 +83,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/blog/${post.slug}`,
       type: 'article',
       keywords: keywords.length > 0 ? keywords : ['travel blog', 'flight tips', 'travel advice'],
-      image: post.featured_image,
+      image: featuredImageWithCacheBusting,
       noindex: false, // Explicitly allow indexing
     }),
     authors: author ? [{ name: author.name, url: author.slug ? `${siteUrl}/blog/author/${author.slug}` : undefined }] : undefined,
@@ -88,7 +101,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         description,
         canonical: `/blog/${post.slug}`,
         type: 'article',
-        image: post.featured_image,
+        image: featuredImageWithCacheBusting,
       }).openGraph,
       type: 'article',
       publishedTime: post.published_at || undefined,
@@ -99,9 +112,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: postUrl,
       siteName: COMPANY_INFO.name,
       locale: 'en_US',
-      ...(post.featured_image && {
+      ...(featuredImageWithCacheBusting && {
         images: [{
-          url: post.featured_image,
+          url: featuredImageWithCacheBusting,
           width: 1200,
           height: 630,
           alt: post.title || 'Featured image',
@@ -112,7 +125,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: 'summary_large_image',
       title,
       description,
-      images: post.featured_image ? [post.featured_image] : undefined,
+      images: featuredImageWithCacheBusting ? [featuredImageWithCacheBusting] : undefined,
       creator: author ? `@${author.name.replace(/\s+/g, '')}` : undefined,
     },
     other: {
@@ -152,11 +165,12 @@ export default async function BlogPostPage({ params }: PageProps) {
     .filter(p => p.id !== post.id && (p.category_id === post.category_id || !post.category_id))
     .slice(0, 3);
 
-  // Process content for SEO
+  // Process content for SEO (with cache-busting for images)
   const processedContent = processContentForSEO(post.content_html || '', {
     title: post.title,
     slug: post.slug,
     defaultAltText: post.title,
+    updatedAt: post.updated_at || post.published_at, // Add cache-busting based on update time
   });
 
   // Extract headings for table of contents
@@ -448,41 +462,56 @@ export default async function BlogPostPage({ params }: PageProps) {
           </Typography>
 
           {/* Featured image - displayed below title for better SEO and visual hierarchy */}
-          {post.featured_image && (
-            <Box 
-              sx={{ 
-                mb: 4,
-                width: '100%',
-                overflow: 'hidden',
-                borderRadius: 2,
-                position: 'relative',
-              }} 
-              itemProp="image" 
-              itemScope 
-              itemType="https://schema.org/ImageObject"
-            >
-              <meta itemProp="url" content={post.featured_image} />
-              <meta itemProp="width" content="1200" />
-              <meta itemProp="height" content="630" />
-              <Box
-                component="img"
-                src={post.featured_image}
-                alt={post.title || 'Featured image'}
-                loading="eager"
-                width={1200}
-                height={630}
-                itemProp="contentUrl"
-                sx={{
+          {post.featured_image && (() => {
+            // Add cache-busting to featured image URL
+            const getImageUrlWithCacheBusting = (url: string): string => {
+              if (!url) return url;
+              const timestamp = post.updated_at || post.published_at;
+              if (!timestamp) return url;
+              
+              const timestampValue = new Date(timestamp).getTime();
+              const separator = url.includes('?') ? '&' : '?';
+              return `${url}${separator}v=${timestampValue}`;
+            };
+            
+            const featuredImageUrl = getImageUrlWithCacheBusting(post.featured_image);
+            
+            return (
+              <Box 
+                sx={{ 
+                  mb: 4,
                   width: '100%',
-                  height: { xs: 'auto', md: '500px' },
-                  maxHeight: { xs: '400px', md: '500px' },
-                  objectFit: 'cover',
-                  objectPosition: 'center',
-                  display: 'block',
-                }}
-              />
-            </Box>
-          )}
+                  overflow: 'hidden',
+                  borderRadius: 2,
+                  position: 'relative',
+                }} 
+                itemProp="image" 
+                itemScope 
+                itemType="https://schema.org/ImageObject"
+              >
+                <meta itemProp="url" content={featuredImageUrl} />
+                <meta itemProp="width" content="1200" />
+                <meta itemProp="height" content="630" />
+                <Box
+                  component="img"
+                  src={featuredImageUrl}
+                  alt={post.title || 'Featured image'}
+                  loading="eager"
+                  width={1200}
+                  height={630}
+                  itemProp="contentUrl"
+                  sx={{
+                    width: '100%',
+                    height: { xs: 'auto', md: '500px' },
+                    maxHeight: { xs: '400px', md: '500px' },
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                    display: 'block',
+                  }}
+                />
+              </Box>
+            );
+          })()}
 
           {/* Excerpt */}
           {post.excerpt && (
