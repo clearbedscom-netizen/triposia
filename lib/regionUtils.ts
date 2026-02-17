@@ -83,11 +83,25 @@ export function categorizeByRegion(
     .map(([name, routes]) => ({
       name,
       routes: routes.filter(r => r).sort((a, b) => {
-        const aFlights = typeof a.flights_per_day === 'string' 
-          ? parseFloat(a.flights_per_day.match(/(\d+(?:\.\d+)?)/)?.[1] || '0')
+        const aFlights = (a.flights_per_day && typeof a.flights_per_day === 'string')
+          ? (() => {
+              try {
+                const match = String(a.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+                return match && match[1] ? parseFloat(match[1]) : 0;
+              } catch {
+                return 0;
+              }
+            })()
           : 0;
-        const bFlights = typeof b.flights_per_day === 'string'
-          ? parseFloat(b.flights_per_day.match(/(\d+(?:\.\d+)?)/)?.[1] || '0')
+        const bFlights = (b.flights_per_day && typeof b.flights_per_day === 'string')
+          ? (() => {
+              try {
+                const match = String(b.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+                return match && match[1] ? parseFloat(match[1]) : 0;
+              } catch {
+                return 0;
+              }
+            })()
           : 0;
         return bFlights - aFlights;
       }),

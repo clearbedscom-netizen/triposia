@@ -142,8 +142,27 @@ export default function SortableRouteTable({
           bValue = b.display.toLowerCase();
           break;
         case 'frequency':
-          aValue = parseFloat(a.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0');
-          bValue = parseFloat(b.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0');
+          // Safely parse flights_per_day with comprehensive null checks
+          aValue = (a.flights_per_day && typeof a.flights_per_day === 'string')
+            ? (() => {
+                try {
+                  const match = String(a.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+                  return match && match[1] ? parseFloat(match[1]) : 0;
+                } catch {
+                  return 0;
+                }
+              })()
+            : 0;
+          bValue = (b.flights_per_day && typeof b.flights_per_day === 'string')
+            ? (() => {
+                try {
+                  const match = String(b.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+                  return match && match[1] ? parseFloat(match[1]) : 0;
+                } catch {
+                  return 0;
+                }
+              })()
+            : 0;
           break;
         case 'distance':
           aValue = a.distance_km || 0;
@@ -370,7 +389,19 @@ export default function SortableRouteTable({
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2">
-                      {route.flights_per_week || Math.round(parseFloat(route.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0') * 7)}
+                      {(() => {
+                        if (route.flights_per_week) return route.flights_per_week;
+                        if (route.flights_per_day && typeof route.flights_per_day === 'string') {
+                          try {
+                            const match = String(route.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+                            if (match && match[1]) {
+                              const daily = parseFloat(match[1]);
+                              if (!isNaN(daily)) return Math.round(daily * 7);
+                            }
+                          } catch {}
+                        }
+                        return 0;
+                      })()}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {route.flights_per_day} daily

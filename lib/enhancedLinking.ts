@@ -148,8 +148,19 @@ export async function getTopRoutePages(
   const routesWithIndexing = await Promise.all(
     routesFrom.slice(0, limit * 2).map(async (route) => {
       // Parse flights_per_day for sorting
-      const match = route.flights_per_day.match(/(\d+(?:\.\d+)?)/);
-      const frequency = match ? parseFloat(match[1]) : 0;
+      // Safely parse flights_per_day with comprehensive null checks
+      let frequency = 0;
+      if (route.flights_per_day && typeof route.flights_per_day === 'string') {
+        try {
+          const match = String(route.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+          if (match && match[1]) {
+            frequency = parseFloat(match[1]);
+            if (isNaN(frequency)) frequency = 0;
+          }
+        } catch (error) {
+          frequency = 0;
+        }
+      }
       
       const shouldIndex = route.has_flight_data === true;
       const routePage = `/flights/${airportIata.toLowerCase()}-${route.destination_iata.toLowerCase()}`;

@@ -83,7 +83,22 @@ export default function EnhancedAirportMap({
         label: `${airport.name || airport.city || airport.iata} (${airport.iata}) - Origin`,
       },
       ...visibleRoutes.map(route => {
-        const weeklyFlights = route.flights_per_week || Math.round(parseFloat(route.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0') * 7);
+        // Safely parse flights_per_day with comprehensive null checks
+        let weeklyFlights = route.flights_per_week;
+        if (!weeklyFlights && route.flights_per_day && typeof route.flights_per_day === 'string') {
+          try {
+            const match = String(route.flights_per_day).match(/(\d+(?:\.\d+)?)/);
+            if (match && match[1]) {
+              const daily = parseFloat(match[1]);
+              if (!isNaN(daily)) {
+                weeklyFlights = Math.round(daily * 7);
+              }
+            }
+          } catch {
+            weeklyFlights = 0;
+          }
+        }
+        weeklyFlights = weeklyFlights || 0;
         const hoverText = [
           `Destination: ${route.display}`,
           `Airlines: ${route.airline_count || 'N/A'}`,
