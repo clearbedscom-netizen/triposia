@@ -108,6 +108,25 @@ export default function ExpandableRouteCard({
                   variant="outlined"
                 />
               )}
+              {/* Distance and Duration - Always visible */}
+              {route.distance_km && (
+                <Chip
+                  icon={<StraightenIcon sx={{ fontSize: 14 }} />}
+                  label={`${Math.round(route.distance_km)} km`}
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                />
+              )}
+              {route.average_duration && (
+                <Chip
+                  icon={<ScheduleIcon sx={{ fontSize: 14 }} />}
+                  label={route.average_duration}
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                />
+              )}
               {route.seasonal && (
                 <Chip
                   label="Seasonal"

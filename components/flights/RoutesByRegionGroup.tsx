@@ -4,6 +4,8 @@ import { Box, Typography, Paper, Grid, Chip, Accordion, AccordionSummary, Accord
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PublicIcon from '@mui/icons-material/Public';
 import FlightIcon from '@mui/icons-material/Flight';
+import StraightenIcon from '@mui/icons-material/Straighten';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import Link from 'next/link';
 import ReliabilityBadge from './ReliabilityBadge';
 
@@ -87,7 +89,7 @@ export default function RoutesByRegionGroup({
                   {region.routes.map((route) => {
                     const routeSlug = `${originIata.toLowerCase()}-${route.iata.toLowerCase()}`;
                     return (
-                      <Grid item xs={12} sm={6} md={4} key={route.iata}>
+                      <Grid item xs={12} sm={6} md={4} lg={3} key={route.iata}>
                         <Paper
                           component={Link}
                           href={`/flights/${routeSlug}`}
@@ -95,38 +97,83 @@ export default function RoutesByRegionGroup({
                             p: 2,
                             textDecoration: 'none',
                             height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            minHeight: { xs: 'auto', sm: '160px' },
                             border: '1px solid',
                             borderColor: 'divider',
+                            borderRadius: 2,
                             '&:hover': {
                               bgcolor: 'action.hover',
                               borderColor: 'primary.main',
-                              boxShadow: 2,
+                              boxShadow: 3,
+                              transform: 'translateY(-2px)',
                             },
-                            transition: 'all 0.2s',
+                            transition: 'all 0.2s ease',
                           }}
                         >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <FlightIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                            <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                            <FlightIcon sx={{ fontSize: 20, color: 'primary.main', flexShrink: 0 }} />
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                fontWeight: 600, 
+                                flex: 1,
+                                lineHeight: 1.3,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                              }}
+                            >
                               {route.display}
                             </Typography>
                           </Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                            {route.flights_per_day} daily
-                            {route.flights_per_week && ` • ${route.flights_per_week} weekly`}
-                          </Typography>
-                          {route.country && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                              {route.country}
+                          
+                          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {route.flights_per_day} daily
+                              {route.flights_per_week && ` • ${route.flights_per_week}/week`}
                             </Typography>
-                          )}
-                          <Box sx={{ display: 'flex', gap: 0.5, mt: 1, flexWrap: 'wrap' }}>
+                            
+                            {/* Distance and Duration */}
+                            {(route.distance_km || route.average_duration) && (
+                              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 0.5 }}>
+                                {route.distance_km && (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <StraightenIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {Math.round(route.distance_km)} km
+                                    </Typography>
+                                  </Box>
+                                )}
+                                {route.average_duration && (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <ScheduleIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {route.average_duration}
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Box>
+                            )}
+                            
+                            {route.country && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                {route.country}
+                              </Typography>
+                            )}
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', gap: 0.5, mt: 1.5, flexWrap: 'wrap' }}>
                             {route.seasonal && (
                               <Chip
                                 label="Seasonal"
                                 size="small"
                                 color="warning"
                                 variant="outlined"
+                                sx={{ fontSize: '0.65rem', height: '20px' }}
                               />
                             )}
                             {route.reliability && (

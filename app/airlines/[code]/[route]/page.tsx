@@ -823,10 +823,10 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                 // If not found in terminal_phones, check airport.terminals
                 if (!terminalNumber && airport.terminals && airport.terminals.length > 0) {
                   const airlineTerminal = airport.terminals.find(term => 
-                    term.airlines.includes(airlineCode)
+                    term?.airlines && Array.isArray(term.airlines) && term.airlines.includes(airlineCode)
                   );
                   if (airlineTerminal) {
-                    terminalNumber = airlineTerminal.name;
+                    terminalNumber = airlineTerminal?.name;
                   }
                 }
                 
@@ -835,10 +835,12 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                   // Check if there's a "main" terminal in airport.terminals
                   if (airport.terminals && airport.terminals.length > 0) {
                     const mainTerminal = airport.terminals.find(term => 
-                      term.name.toLowerCase().includes('main') || 
-                      term.name.toLowerCase() === '1'
+                      term?.name && (
+                        term.name.toLowerCase().includes('main') || 
+                        term.name.toLowerCase() === '1'
+                      )
                     );
-                    terminalNumber = mainTerminal ? mainTerminal.name : 'Terminal 1';
+                    terminalNumber = mainTerminal?.name || 'Terminal 1';
                   } else {
                     terminalNumber = 'Terminal 1'; // Default fallback
                   }
