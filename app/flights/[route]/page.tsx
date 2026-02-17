@@ -369,22 +369,32 @@ export default async function FlightRoutePage({ params }: PageProps) {
 
     // Format destination displays for popular routes and tabs
     // Use route.destination_city for destinations
-    const destinationsWithDisplay = await Promise.all(
+    const destinationsWithDisplayRaw = await Promise.all(
       destinations
         .filter(dest => dest && dest.iata) // Filter out null/undefined destinations
         .map(async (dest) => {
+          if (!dest || !dest.iata) return null; // Skip null destinations
+          
           const route = routesFrom.find(r => r && r.destination_iata === dest.iata);
           const destCity = route?.destination_city || dest.city;
           const destDisplay = await formatAirportName(dest.iata, dest.airport, destCity);
+          
+          // Ensure flights_per_day is always a string, never null
+          const safeFlightsPerDay = (dest.flights_per_day && typeof dest.flights_per_day === 'string')
+            ? dest.flights_per_day
+            : '0 flights';
+          
           return { 
             ...dest, 
             display: destDisplay,
-            // Ensure flights_per_day is always a string, never null
-            flights_per_day: dest.flights_per_day && typeof dest.flights_per_day === 'string' 
-              ? dest.flights_per_day 
-              : '0 flights'
+            flights_per_day: safeFlightsPerDay
           };
         })
+    );
+    
+    // Filter out any null results
+    const destinationsWithDisplay = destinationsWithDisplayRaw.filter(
+      (dest): dest is NonNullable<typeof dest> => dest !== null && dest !== undefined && dest.flights_per_day
     );
     
     // Format origin displays for tabs
@@ -425,13 +435,21 @@ export default async function FlightRoutePage({ params }: PageProps) {
     const { calculateDistance } = await import('@/lib/distance');
     
     const routesWithWeekly = (await Promise.all(destinationsWithDisplay
-      .filter(dest => dest && dest.iata) // Filter out null/undefined destinations
+      .filter(dest => dest && dest.iata && dest.flights_per_day) // Filter out null/undefined destinations and routes without flights_per_day
       .map(async (dest) => {
-        // Safely parse flights_per_day
-        const flightsPerDay = dest?.flights_per_day;
-        const match = flightsPerDay && typeof flightsPerDay === 'string' 
-          ? flightsPerDay.match(/(\d+(?:\.\d+)?)/)
-          : null;
+        // Early return if dest is null (defensive check)
+        if (!dest || !dest.iata) {
+          return null;
+        }
+        
+        // Safely parse flights_per_day - ensure it's a string
+        const flightsPerDay = dest.flights_per_day;
+        if (!flightsPerDay || typeof flightsPerDay !== 'string') {
+          // If flights_per_day is not a valid string, skip this route
+          return null;
+        }
+        
+        const match = flightsPerDay.match(/(\d+(?:\.\d+)?)/);
         const daily = match ? parseFloat(match[1]) : 0;
       const routeFlights = (departures || []).filter(f => f && f.destination_iata === dest.iata);
       const uniqueAirlines = new Set(routeFlights.map(f => f?.airline_iata).filter(Boolean));
@@ -464,8 +482,14 @@ export default async function FlightRoutePage({ params }: PageProps) {
         route_growth = 'declining';
       }
       
+      // Ensure flights_per_day is always a string, never null (override any null from spread)
+      const safeFlightsPerDay = (dest?.flights_per_day && typeof dest.flights_per_day === 'string')
+        ? dest.flights_per_day
+        : '0 flights';
+
       return {
         ...dest,
+        flights_per_day: safeFlightsPerDay, // Explicitly set to ensure it's never null
         flights_per_week: Math.round(daily * 7),
         airline_count: uniqueAirlines.size,
         popularity_score: popularityScore,
@@ -480,7 +504,13 @@ export default async function FlightRoutePage({ params }: PageProps) {
         route_growth,
       };
     })))
-    .filter(route => route && route.iata); // Filter out any null/undefined routes
+    .filter((route): route is NonNullable<typeof route> => 
+      route !== null && 
+      route !== undefined && 
+      route.iata && 
+      route.flights_per_day &&
+      typeof route.flights_per_day === 'string'
+    ); // Filter out any null/undefined routes or routes without valid flights_per_day
 
     // Prepare data for new components
     // Calculate total weekly flights
