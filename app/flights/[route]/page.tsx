@@ -416,13 +416,14 @@ export default async function FlightRoutePage({ params }: PageProps) {
 
     // Get top 3 busiest routes
     const top3Routes = [...routesWithWeekly]
+      .filter(route => route && route.iata && route.display)
       .sort((a, b) => (b.flights_per_week || 0) - (a.flights_per_week || 0))
       .slice(0, 3)
       .map(route => ({
-        iata: route.iata,
-        display: route.display,
-        flights_per_day: route.flights_per_day,
-        flights_per_week: route.flights_per_week,
+        iata: route.iata || '',
+        display: route.display || route.iata || '',
+        flights_per_day: route.flights_per_day || '0 flights',
+        flights_per_week: route.flights_per_week || 0,
       }));
 
     // Group routes by airline and calculate airline stats
@@ -435,48 +436,59 @@ export default async function FlightRoutePage({ params }: PageProps) {
       reliability?: 'Very Stable' | 'Moderate' | 'Seasonal' | 'Limited';
     }>();
 
-    routesWithWeekly.forEach(route => {
-      const routeFlights = departures.filter(f => f.destination_iata === route.iata);
-      const airlines = Array.from(new Set(routeFlights.map(f => f.airline_iata).filter(Boolean)));
-      
-      airlines.forEach(airlineCode => {
-        if (!airlineCode) return;
-        const airline = airlineList.find(a => a.iata?.toUpperCase() === airlineCode.toUpperCase());
-        if (!airline) return;
+    if (routesWithWeekly.length > 0 && departures && departures.length > 0) {
+      routesWithWeekly.forEach(route => {
+        if (!route || !route.iata) return;
+        const routeFlights = departures.filter(f => f && f.destination_iata === route.iata);
+        const airlines = Array.from(new Set(routeFlights.map(f => f?.airline_iata).filter(Boolean)));
         
-        const key = airline.code.toLowerCase();
-        if (!airlineGroupsMap.has(key)) {
-          airlineGroupsMap.set(key, {
-            code: airline.code,
-            name: airline.name,
-            destination_count: 0,
-            weekly_flights: 0,
-            routes: [],
+        airlines.forEach(airlineCode => {
+          if (!airlineCode) return;
+          const airline = airlineList.find(a => {
+            const aIata = a.iata?.toUpperCase();
+            const aCode = a.code?.toUpperCase();
+            return aIata === airlineCode.toUpperCase() || aCode === airlineCode.toUpperCase();
           });
-        }
-        
-        const group = airlineGroupsMap.get(key)!;
-        if (!group.routes.find(r => r.iata === route.iata)) {
-          group.routes.push(route);
-          group.destination_count++;
-          group.weekly_flights += route.flights_per_week || 0;
-        }
+          if (!airline) return;
+          
+          const key = (airline.code || airline.iata || '').toLowerCase();
+          if (!key) return;
+          
+          if (!airlineGroupsMap.has(key)) {
+            airlineGroupsMap.set(key, {
+              code: airline.code || airline.iata || '',
+              name: airline.name || airline.code || airline.iata || '',
+              destination_count: 0,
+              weekly_flights: 0,
+              routes: [],
+            });
+          }
+          
+          const group = airlineGroupsMap.get(key);
+          if (group && !group.routes.find(r => r.iata === route.iata)) {
+            group.routes.push(route);
+            group.destination_count++;
+            group.weekly_flights += route.flights_per_week || 0;
+          }
+        });
       });
-    });
+    }
 
     const airlineGroups = Array.from(airlineGroupsMap.values())
       .sort((a, b) => b.weekly_flights - a.weekly_flights);
 
     // Get top 3 airlines
     const top3Airlines = airlineGroups.slice(0, 3).map(airline => ({
-      code: airline.code,
-      name: airline.name,
-      route_count: airline.destination_count,
-      weekly_flights: airline.weekly_flights,
+      code: airline.code || '',
+      name: airline.name || airline.code || '',
+      route_count: airline.destination_count || 0,
+      weekly_flights: airline.weekly_flights || 0,
     }));
 
     // Categorize routes by region
-    const regionGroups = categorizeByRegion(routesWithWeekly, airport.country);
+    const regionGroups = routesWithWeekly.length > 0 
+      ? categorizeByRegion(routesWithWeekly, airport?.country)
+      : [];
 
     // Check if page exists in pages_editorial collection
     const editorialSlug = `flights/${iata.toLowerCase()}`;
@@ -622,11 +634,11 @@ export default async function FlightRoutePage({ params }: PageProps) {
 
         {/* Airport Summary Section */}
         <AirportSummarySection
-          totalDestinations={airport.destinations_count}
-          totalAirlines={airlineList.length}
-          totalWeeklyFlights={totalWeeklyFlights}
-          topRoutes={top3Routes}
-          topAirlines={top3Airlines}
+          totalDestinations={airport?.destinations_count || 0}
+          totalAirlines={airlineList?.length || 0}
+          totalWeeklyFlights={totalWeeklyFlights || 0}
+          topRoutes={top3Routes || []}
+          topAirlines={top3Airlines || []}
           originIata={iata}
         />
 

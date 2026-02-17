@@ -41,7 +41,13 @@ export function categorizeByRegion(
 ): RegionGroup[] {
   const groups: Map<string, Route[]> = new Map();
 
+  if (!routes || routes.length === 0) {
+    return [];
+  }
+
   routes.forEach((route) => {
+    if (!route) return;
+    
     let region = 'Other';
     
     if (route.is_domestic && originCountry) {
@@ -85,9 +91,13 @@ export function categorizeByRegion(
   const result: RegionGroup[] = Array.from(groups.entries())
     .map(([name, routes]) => ({
       name,
-      routes: routes.sort((a, b) => {
-        const aFlights = parseFloat(a.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0');
-        const bFlights = parseFloat(b.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0');
+      routes: routes.filter(r => r).sort((a, b) => {
+        const aFlights = typeof a.flights_per_day === 'string' 
+          ? parseFloat(a.flights_per_day.match(/(\d+(?:\.\d+)?)/)?.[1] || '0')
+          : 0;
+        const bFlights = typeof b.flights_per_day === 'string'
+          ? parseFloat(b.flights_per_day.match(/(\d+(?:\.\d+)?)/)?.[1] || '0')
+          : 0;
         return bFlights - aFlights;
       }),
       count: routes.length,

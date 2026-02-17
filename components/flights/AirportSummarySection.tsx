@@ -70,7 +70,7 @@ export default function AirportSummarySection({
           <Box sx={{ textAlign: 'center' }}>
             <TrendingUp sx={{ fontSize: 32, color: 'primary.main', mb: 1 }} />
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-              {totalWeeklyFlights.toLocaleString()}
+              {typeof totalWeeklyFlights === 'number' ? totalWeeklyFlights.toLocaleString() : '0'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Weekly Flights
@@ -182,7 +182,7 @@ export default function AirportSummarySection({
                       {airline.name}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {airline.route_count} routes • {airline.weekly_flights} weekly flights
+                      {airline.route_count || 0} routes • {airline.weekly_flights || 0} weekly flights
                     </Typography>
                   </Box>
                 </Box>
