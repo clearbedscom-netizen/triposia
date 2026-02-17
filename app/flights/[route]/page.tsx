@@ -292,7 +292,9 @@ export default async function FlightRoutePage({ params }: PageProps) {
         iata: route.destination_iata,
         city: route.destination_city || destAirport?.city,
         airport: destAirport, // Store full airport object for formatting
-        flights_per_day: route.flights_per_day || '0 flights',
+        flights_per_day: (route.flights_per_day && typeof route.flights_per_day === 'string') 
+          ? route.flights_per_day 
+          : '0 flights',
         is_domestic: isDomestic,
         country: destCountry,
       });
@@ -320,7 +322,9 @@ export default async function FlightRoutePage({ params }: PageProps) {
           iata: route.origin_iata,
           city: originAirport?.city || route.origin_iata,
           airport: originAirport, // Store full airport object for formatting
-          flights_per_day: route.flights_per_day || '0 flights',
+          flights_per_day: (route.flights_per_day && typeof route.flights_per_day === 'string')
+            ? route.flights_per_day
+            : '0 flights',
           is_domestic: isDomestic,
           country: originCountry,
         });
@@ -366,12 +370,21 @@ export default async function FlightRoutePage({ params }: PageProps) {
     // Format destination displays for popular routes and tabs
     // Use route.destination_city for destinations
     const destinationsWithDisplay = await Promise.all(
-      destinations.map(async (dest) => {
-        const route = routesFrom.find(r => r.destination_iata === dest.iata);
-        const destCity = route?.destination_city || dest.city;
-        const destDisplay = await formatAirportName(dest.iata, dest.airport, destCity);
-        return { ...dest, display: destDisplay };
-      })
+      destinations
+        .filter(dest => dest && dest.iata) // Filter out null/undefined destinations
+        .map(async (dest) => {
+          const route = routesFrom.find(r => r && r.destination_iata === dest.iata);
+          const destCity = route?.destination_city || dest.city;
+          const destDisplay = await formatAirportName(dest.iata, dest.airport, destCity);
+          return { 
+            ...dest, 
+            display: destDisplay,
+            // Ensure flights_per_day is always a string, never null
+            flights_per_day: dest.flights_per_day && typeof dest.flights_per_day === 'string' 
+              ? dest.flights_per_day 
+              : '0 flights'
+          };
+        })
     );
     
     // Format origin displays for tabs
