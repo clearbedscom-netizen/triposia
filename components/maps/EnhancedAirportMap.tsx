@@ -11,8 +11,11 @@ interface Route {
   lat?: number;
   lng?: number;
   flights_per_day: string;
+  flights_per_week?: number;
   airline_count?: number;
   popularity_score?: number;
+  average_duration?: string;
+  distance_km?: number;
 }
 
 interface EnhancedAirportMapProps {
@@ -71,7 +74,7 @@ export default function EnhancedAirportMap({
     return filtered;
   }, [routesWithCoords, showBusiestOnly, busiestRoutes]);
 
-  // Prepare markers and polylines
+  // Prepare markers and polylines with enhanced hover data
   const { markers: markersList, polylines: polylinesList } = useMemo(() => {
     const markers = [
       {
@@ -79,11 +82,21 @@ export default function EnhancedAirportMap({
         lon: airport.lng,
         label: `${airport.name || airport.city || airport.iata} (${airport.iata}) - Origin`,
       },
-      ...visibleRoutes.map(route => ({
-        lat: route.lat!,
-        lon: route.lng!,
-        label: `${route.display} (${route.iata}) - ${route.flights_per_day} daily`,
-      })),
+      ...visibleRoutes.map(route => {
+        const weeklyFlights = route.flights_per_week || Math.round(parseFloat(route.flights_per_day?.match(/(\d+(?:\.\d+)?)/)?.[1] || '0') * 7);
+        const hoverText = [
+          `Destination: ${route.display}`,
+          `Airlines: ${route.airline_count || 'N/A'}`,
+          `Weekly: ${weeklyFlights} flights`,
+          route.average_duration ? `Duration: ${route.average_duration}` : '',
+        ].filter(Boolean).join(' • ');
+        
+        return {
+          lat: route.lat!,
+          lon: route.lng!,
+          label: hoverText || `${route.display} (${route.iata}) - ${route.flights_per_day} daily`,
+        };
+      }),
     ];
 
     const polylines = visibleRoutes.map(route => ({

@@ -52,6 +52,9 @@ import RoutesByRegionGroup from '@/components/flights/RoutesByRegionGroup';
 import { categorizeByRegion } from '@/lib/regionUtils';
 import SortableRouteTable from '@/components/flights/SortableRouteTable';
 import VisualAnalyticsBlock from '@/components/flights/VisualAnalyticsBlock';
+import AirportHeroSection from '@/components/flights/AirportHeroSection';
+import ConnectivityScore from '@/components/flights/ConnectivityScore';
+import AISummaryBlock from '@/components/flights/AISummaryBlock';
 import { formatAirportDisplay, formatAirportName } from '@/lib/formatting';
 import { generateRouteFAQs, generateAirportFAQs } from '@/lib/faqGenerators';
 import { stripHtml } from '@/lib/utils/html';
@@ -541,6 +544,57 @@ export default async function FlightRoutePage({ params }: PageProps) {
       ? categorizeByRegion(routesWithWeekly, airport?.country)
       : [];
 
+    // Calculate international route count
+    const internationalCount = routesWithWeekly.filter(r => {
+      // Route is international if it's not domestic and country differs from origin
+      return r.is_domestic === false || (r.country && r.country !== airport?.country);
+    }).length;
+
+    // Calculate connectivity scores
+    const totalDestinations = airport?.destinations_count || 0;
+    const calculateConnectivityScores = () => {
+      // Route diversity: based on number of unique destinations relative to typical airport
+      // Normalize to 0-100 scale (assuming 50+ destinations = 100%)
+      const routeDiversity = totalDestinations > 0 ? Math.min(100, (totalDestinations / 50) * 100) : 0;
+      
+      // Airline diversity: based on number of airlines relative to typical airport
+      // Normalize to 0-100 scale (assuming 10+ airlines = 100%)
+      const airlineDiversity = airlineList.length > 0 ? Math.min(100, (airlineList.length / 10) * 100) : 0;
+      
+      // Growth trend: analyze route growth patterns
+      const growingRoutes = routesWithWeekly.filter(r => r.route_growth === 'growing').length;
+      const totalActiveRoutes = routesWithWeekly.filter(r => (r.flights_per_week || 0) > 0).length;
+      const growthTrend: 'growing' | 'stable' | 'declining' = 
+        totalActiveRoutes > 0 && (growingRoutes / totalActiveRoutes) > 0.3 ? 'growing' :
+        totalActiveRoutes > 0 && (growingRoutes / totalActiveRoutes) > 0.1 ? 'stable' : 'declining';
+      
+      // Reliability score: based on route reliability distribution
+      const reliableRoutes = routesWithWeekly.filter(r => 
+        r.reliability === 'Very Stable' || r.reliability === 'Moderate'
+      ).length;
+      const reliabilityScore = totalDestinations > 0 
+        ? Math.min(100, (reliableRoutes / totalDestinations) * 100)
+        : 50;
+      
+      // Overall score: weighted average
+      const overallScore = Math.round(
+        (routeDiversity * 0.3) +
+        (airlineDiversity * 0.25) +
+        (reliabilityScore * 0.25) +
+        (growthTrend === 'growing' ? 80 : growthTrend === 'stable' ? 50 : 30) * 0.2
+      );
+      
+      return {
+        overallScore,
+        routeDiversity: Math.round(routeDiversity),
+        airlineDiversity: Math.round(airlineDiversity),
+        growthTrend,
+        reliabilityScore: Math.round(reliabilityScore),
+      };
+    };
+
+    const connectivityScores = calculateConnectivityScores();
+
     // Check if page exists in pages_editorial collection
     const editorialSlug = `flights/${iata.toLowerCase()}`;
     const editorialPage = await getEditorialPage(editorialSlug);
@@ -660,41 +714,34 @@ export default async function FlightRoutePage({ params }: PageProps) {
         {routeListSchema && <JsonLd data={routeListSchema} />}
         {faqSchema && <JsonLd data={faqSchema} />}
 
-        <Typography 
-          variant="h1" 
-          gutterBottom 
-          sx={{ 
-            textAlign: 'left',
-            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
-            lineHeight: { xs: 1.3, sm: 1.4 },
-            wordBreak: 'break-word',
-          }}
-        >
-          {airport?.name || airportDisplay}
-        </Typography>
-
-        <Typography 
-          variant="body1" 
-          sx={{ 
-            mb: { xs: 2, sm: 3 }, 
-            fontSize: { xs: '0.875rem', sm: '1.1rem' }, 
-            lineHeight: 1.8,
-            wordBreak: 'break-word',
-          }}
-        >
-          {introText}
-        </Typography>
-
-        {/* 1. Airport Summary Section - Key Metrics with Prominent Header */}
-        <AirportSummarySection
+        {/* 1. HERO SECTION - Above the fold */}
+        <AirportHeroSection
+          airportName={airport?.name || airport?.city || airportDisplay}
+          airportCode={iata}
           totalDestinations={airport?.destinations_count || 0}
           totalAirlines={airlineList?.length || 0}
           totalWeeklyFlights={totalWeeklyFlights || 0}
-          topRoutes={top3Routes || []}
-          topAirlines={top3Airlines || []}
-          originIata={iata}
-          airportName={airport?.name}
-          airportCity={airport?.city}
+          internationalCount={internationalCount}
+        />
+
+        {/* 2. AIRPORT CONNECTIVITY SCORE */}
+        <Box id="connectivity-score-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+          <ConnectivityScore
+            overallScore={connectivityScores.overallScore}
+            routeDiversity={connectivityScores.routeDiversity}
+            airlineDiversity={connectivityScores.airlineDiversity}
+            growthTrend={connectivityScores.growthTrend}
+            reliabilityScore={connectivityScores.reliabilityScore}
+          />
+        </Box>
+
+        {/* 3. AI-READY SUMMARY BLOCK */}
+        <AISummaryBlock
+          airportName={airport?.name || airport?.city || airportDisplay}
+          airportCode={iata}
+          totalDestinations={airport?.destinations_count || 0}
+          totalAirlines={airlineList?.length || 0}
+          topRoutes={top3Routes.map(r => ({ display: r.display, iata: r.iata }))}
         />
 
         {/* 2. Visual Analytics Block - Charts and Data Visualization */}
@@ -713,7 +760,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* 3. Routes by Airline Group - Organized by Airline */}
+        {/* 6. GROUP ROUTES BY AIRLINE */}
         {airlineGroups.length > 0 && (
           <Box id="routes-by-airline-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <RoutesByAirlineGroup
@@ -723,7 +770,23 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* 4. Routes by Region Group - Organized by Geographic Region */}
+        {/* 7. TOP ROUTES DASHBOARD - Visual Analytics */}
+        {routesWithWeekly.length > 0 && (
+          <Box id="analytics-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+            <VisualAnalyticsBlock
+              routes={routesWithWeekly}
+              airlines={airlineGroups.map(g => ({
+                code: g.code,
+                name: g.name,
+                route_count: g.destination_count,
+                weekly_flights: g.weekly_flights,
+              }))}
+              originDisplay={airportDisplay}
+            />
+          </Box>
+        )}
+
+        {/* 8. DESTINATIONS BY REGION */}
         {regionGroups.length > 0 && (
           <Box id="routes-by-region-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <RoutesByRegionGroup
@@ -734,7 +797,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* 5. Sortable Route Table - Comprehensive Table View with All Routes */}
+        {/* 5. SORTABLE ROUTE TABLE - Comprehensive Table View */}
         {routesWithWeekly.length > 0 && (
           <Box id="routes-table-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
             <SortableRouteTable
@@ -755,6 +818,8 @@ export default async function FlightRoutePage({ params }: PageProps) {
             />
           </Box>
         )}
+
+        {/* 6. GROUP ROUTES BY AIRLINE */}
 
         {/* 6. Flight Schedule - Calendar View */}
         {departures.length > 0 && (
