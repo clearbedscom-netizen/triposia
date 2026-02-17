@@ -213,7 +213,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
 
     // Create destinations list from routes (flights FROM this airport)
     const destinationsMap = new Map();
-    const destinationIatas = Array.from(new Set(routesFrom.map(r => r.destination_iata)));
+    const destinationIatas = Array.from(new Set(routesFrom.map(r => r.destination_iata).filter(Boolean)));
     
     // Fetch all destination airports in parallel to get city names and check for multiple airports
     const destinationAirports = await Promise.all(
@@ -224,7 +224,8 @@ export default async function FlightRoutePage({ params }: PageProps) {
     const originCountry = airport.country;
     
     routesFrom.forEach(route => {
-      const destAirport = destinationAirports.find(a => a?.iata_from === route.destination_iata);
+      if (!route.destination_iata) return; // Skip routes with missing destination
+      const destAirport = destinationAirports.find(a => a?.iata_from?.toUpperCase() === route.destination_iata?.toUpperCase());
       const destCountry = destAirport?.country;
       // Determine if route is domestic or international based on country codes
       const isDomestic: boolean = originCountry && destCountry && originCountry === destCountry ? true : false;
@@ -232,7 +233,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
         iata: route.destination_iata,
         city: route.destination_city || destAirport?.city,
         airport: destAirport, // Store full airport object for formatting
-        flights_per_day: route.flights_per_day,
+        flights_per_day: route.flights_per_day || '0 flights',
         is_domestic: isDomestic,
         country: destCountry,
       });
@@ -241,7 +242,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
 
     // Create origins list from routes (flights TO this airport)
     const originsMap = new Map<string, { iata: string; city: string; flights_per_day: string; airport?: any; is_domestic?: boolean; country?: string }>();
-    const uniqueOrigins = Array.from(new Set(routesTo.map(r => r.origin_iata)));
+    const uniqueOrigins = Array.from(new Set(routesTo.map(r => r.origin_iata).filter(Boolean)));
     
     // Fetch all origin airports in parallel
     const originAirports = await Promise.all(
@@ -250,8 +251,9 @@ export default async function FlightRoutePage({ params }: PageProps) {
     
     // Build origins map with city names
     routesTo.forEach(route => {
+      if (!route.origin_iata) return; // Skip routes with missing origin
       if (!originsMap.has(route.origin_iata)) {
-        const originAirport = originAirports.find(a => a?.iata_from === route.origin_iata);
+        const originAirport = originAirports.find(a => a?.iata_from?.toUpperCase() === route.origin_iata?.toUpperCase());
         const originCountry = originAirport?.country;
         // Determine if route is domestic or international based on country codes
         const isDomestic: boolean = originCountry && originCountry === airport.country ? true : false;
@@ -259,7 +261,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
           iata: route.origin_iata,
           city: originAirport?.city || route.origin_iata,
           airport: originAirport, // Store full airport object for formatting
-          flights_per_day: route.flights_per_day,
+          flights_per_day: route.flights_per_day || '0 flights',
           is_domestic: isDomestic,
           country: originCountry,
         });
@@ -344,7 +346,7 @@ export default async function FlightRoutePage({ params }: PageProps) {
     // Calculate flights_per_week, airline_count, distance, and other route data
     const { calculateDistance } = await import('@/lib/distance');
     const routesWithWeekly = await Promise.all(destinationsWithDisplay.map(async (dest) => {
-      const match = dest.flights_per_day.match(/(\d+(?:\.\d+)?)/);
+      const match = dest.flights_per_day?.match(/(\d+(?:\.\d+)?)/);
       const daily = match ? parseFloat(match[1]) : 0;
       const routeFlights = departures.filter(f => f.destination_iata === dest.iata);
       const uniqueAirlines = new Set(routeFlights.map(f => f.airline_iata).filter(Boolean));
