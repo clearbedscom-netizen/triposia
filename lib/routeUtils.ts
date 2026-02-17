@@ -8,13 +8,19 @@ export function getFlightTimeRange(flights: Flight[]): string | undefined {
 
   const durations: number[] = [];
   flights.forEach((flight) => {
-    if (flight.duration) {
-      // Parse duration like "2h 30m" or "1h 45m"
-      const match = flight.duration.match(/(\d+)h\s*(\d+)m/);
-      if (match) {
-        const hours = parseInt(match[1], 10);
-        const minutes = parseInt(match[2], 10);
-        durations.push(hours * 60 + minutes);
+    if (flight.duration && typeof flight.duration === 'string') {
+      try {
+        // Parse duration like "2h 30m" or "1h 45m"
+        const match = String(flight.duration).match(/(\d+)h\s*(\d+)m/);
+        if (match && match[1] && match[2]) {
+          const hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          if (!isNaN(hours) && !isNaN(minutes)) {
+            durations.push(hours * 60 + minutes);
+          }
+        }
+      } catch (error) {
+        // Skip invalid duration
       }
     }
   });
@@ -63,14 +69,27 @@ export function getLastFlight(flights: Flight[]): string | undefined {
 /**
  * Calculate flights per week from flights per day
  */
-export function calculateFlightsPerWeek(flightsPerDay: string | undefined): number | undefined {
-  if (!flightsPerDay) return undefined;
+export function calculateFlightsPerWeek(flightsPerDay: string | undefined | null): number | undefined {
+  // Comprehensive null/undefined checks
+  if (!flightsPerDay || flightsPerDay === null || flightsPerDay === undefined) return undefined;
+  if (typeof flightsPerDay !== 'string') return undefined;
+  if (flightsPerDay.length === 0) return undefined;
 
-  // Extract number from strings like "12-21 flights" or "15 flights"
-  const match = flightsPerDay.match(/(\d+)/);
-  if (match) {
-    const avg = parseInt(match[1], 10);
-    return avg * 7;
+  try {
+    // Extract number from strings like "12-21 flights" or "15 flights"
+    // Use String() conversion as final safeguard
+    const str = String(flightsPerDay);
+    const match = str.match(/(\d+)/);
+    if (match && match[1]) {
+      const avg = parseInt(match[1], 10);
+      if (!isNaN(avg)) {
+        return avg * 7;
+      }
+    }
+  } catch (error) {
+    // If anything goes wrong, return undefined
+    console.error('Error calculating flights per week:', error, flightsPerDay);
+    return undefined;
   }
 
   return undefined;
@@ -88,11 +107,18 @@ export function formatDistance(distance: string | undefined): string | undefined
   }
 
   // If just a number (assume km), convert to miles and format
-  const kmMatch = distance.match(/(\d+(?:\.\d+)?)\s*(?:km|kilometers?)?/i);
-  if (kmMatch) {
-    const km = parseFloat(kmMatch[1]);
-    const miles = Math.round(km * 0.621371);
-    return `${miles} miles (${Math.round(km)} km)`;
+  try {
+    if (typeof distance !== 'string') return distance;
+    const kmMatch = String(distance).match(/(\d+(?:\.\d+)?)\s*(?:km|kilometers?)?/i);
+    if (kmMatch && kmMatch[1]) {
+      const km = parseFloat(kmMatch[1]);
+      if (!isNaN(km)) {
+        const miles = Math.round(km * 0.621371);
+        return `${miles} miles (${Math.round(km)} km)`;
+      }
+    }
+  } catch (error) {
+    // Return original distance if parsing fails
   }
 
   return distance;
