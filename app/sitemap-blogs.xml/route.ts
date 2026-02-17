@@ -8,6 +8,16 @@ export const revalidate = 0; // Revalidate on every request for fresh data
 
 const DOMAIN_ID = 2; // Triposia.com domain ID
 
+// Escape XML special characters in URLs
+function escapeXmlUrl(url: string): string {
+  return url
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || COMPANY_INFO.website;
   // Use a date within the last 15 days (7 days ago as default)
@@ -40,8 +50,12 @@ export async function GET() {
         }
       }
 
+      // Escape the URL to handle special characters in slugs
+      const escapedSlug = escapeXmlUrl(post.slug);
+      const escapedUrl = escapeXmlUrl(`${baseUrl}/blog/${post.slug}`);
+      
       urls.push(`  <url>
-    <loc>${baseUrl}/blog/${post.slug}</loc>
+    <loc>${escapedUrl}</loc>
     <lastmod>${postLastMod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${priority}</priority>
@@ -54,8 +68,9 @@ export async function GET() {
 
   // Ensure at least one URL to prevent empty sitemap
   if (urls.length === 0) {
+    const escapedBlogUrl = escapeXmlUrl(`${baseUrl}/blog`);
     urls.push(`  <url>
-    <loc>${baseUrl}/blog</loc>
+    <loc>${escapedBlogUrl}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
