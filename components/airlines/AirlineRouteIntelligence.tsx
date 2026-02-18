@@ -97,54 +97,57 @@ export default function AirlineRouteIntelligence({
       <Grid container spacing={3}>
         {/* Overall Connectivity Score */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom color="text.secondary">
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom color="text.secondary" sx={{ mb: 3, fontWeight: 600 }}>
               Overall Connectivity Score
             </Typography>
-            <Box sx={{ position: 'relative', display: 'inline-flex', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 3, flex: 1 }}>
               <Box
                 sx={{
-                  width: 120,
-                  height: 120,
+                  width: { xs: 140, sm: 160, md: 180 },
+                  height: { xs: 140, sm: 160, md: 180 },
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   background: `conic-gradient(${getScoreColor(connectivityScore) === 'success' ? '#4caf50' : getScoreColor(connectivityScore) === 'info' ? '#2196f3' : getScoreColor(connectivityScore) === 'warning' ? '#ff9800' : '#f44336'} 0deg ${(connectivityScore / 100) * 360}deg, #e0e0e0 ${(connectivityScore / 100) * 360}deg 360deg)`,
+                  position: 'relative',
                 }}
               >
                 <Box
                   sx={{
-                    width: 90,
-                    height: 90,
+                    width: { xs: 110, sm: 125, md: 140 },
+                    height: { xs: 110, sm: 125, md: 140 },
                     borderRadius: '50%',
                     bgcolor: 'background.paper',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    boxShadow: 2,
                   }}
                 >
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  <Typography variant="h3" sx={{ fontWeight: 700, fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }, lineHeight: 1 }}>
                     {connectivityScore}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 500 }}>
                     {getScoreLabel(connectivityScore)}
                   </Typography>
                 </Box>
               </Box>
             </Box>
-            <Box sx={{ mt: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2">Route Diversity</Typography>
-                <Typography variant="body2" fontWeight={600}>
+            <Box sx={{ mt: 'auto' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>Route Diversity</Typography>
+                <Typography variant="body2" fontWeight={700} color="primary.main">
                   {totalRoutes >= 30 ? 'High' : totalRoutes >= 10 ? 'Medium' : 'Low'}
                 </Typography>
               </Box>
               <LinearProgress
                 variant="determinate"
                 value={Math.min(100, (totalRoutes / 50) * 100)}
-                sx={{ height: 6, borderRadius: 3 }}
+                sx={{ height: 8, borderRadius: 4, bgcolor: 'action.hover' }}
+                color={totalRoutes >= 30 ? 'success' : totalRoutes >= 10 ? 'info' : 'warning'}
               />
             </Box>
           </Paper>
@@ -152,8 +155,8 @@ export default function AirlineRouteIntelligence({
 
         {/* Top Routes */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom color="text.secondary" sx={{ mb: 2 }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: '100%' }}>
+            <Typography variant="h6" gutterBottom color="text.secondary" sx={{ mb: 3, fontWeight: 600 }}>
               Top 5 Most Frequent Routes
             </Typography>
             <Grid container spacing={2}>
@@ -165,61 +168,70 @@ export default function AirlineRouteIntelligence({
                       component={Link}
                       href={`/flights/${routeSlug}`}
                       sx={{
-                        p: 2,
+                        p: 2.5,
                         textDecoration: 'none',
                         border: '1px solid',
                         borderColor: 'divider',
+                        borderRadius: 2,
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
                         '&:hover': {
                           bgcolor: 'action.hover',
                           borderColor: 'primary.main',
-                          boxShadow: 2,
+                          boxShadow: 3,
+                          transform: 'translateY(-2px)',
                         },
-                        transition: 'all 0.2s',
+                        transition: 'all 0.2s ease-in-out',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <FlightIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
+                        <FlightIcon sx={{ fontSize: 20, color: 'primary.main', mt: 0.5, flexShrink: 0 }} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, lineHeight: 1.3 }}>
                           {route.display}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                        <Chip
-                          label={`${route.weeklyFlights}/week`}
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                        />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <Chip
+                            label={`${route.weeklyFlights}/week`}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            sx={{ fontWeight: 600 }}
+                          />
+                          {route.reliability && (
+                            <Chip
+                              label={route.reliability}
+                              size="small"
+                              color={
+                                route.reliability === 'Very Stable'
+                                  ? 'success'
+                                  : route.reliability === 'Moderate'
+                                  ? 'info'
+                                  : route.reliability === 'Seasonal'
+                                  ? 'warning'
+                                  : 'default'
+                              }
+                              variant="outlined"
+                              sx={{ fontWeight: 500 }}
+                            />
+                          )}
+                        </Box>
                         {route.duration && (
-                          <Chip
-                            icon={<ScheduleIcon sx={{ fontSize: 14 }} />}
-                            label={route.duration}
-                            size="small"
-                            variant="outlined"
-                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <ScheduleIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption" color="text.secondary">
+                              {route.duration}
+                            </Typography>
+                          </Box>
                         )}
-                        {route.reliability && (
-                          <Chip
-                            label={route.reliability}
-                            size="small"
-                            color={
-                              route.reliability === 'Very Stable'
-                                ? 'success'
-                                : route.reliability === 'Moderate'
-                                ? 'info'
-                                : route.reliability === 'Seasonal'
-                                ? 'warning'
-                                : 'default'
-                            }
-                            variant="outlined"
-                          />
+                        {route.distance && (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                            {Math.round(route.distance)} km
+                          </Typography>
                         )}
                       </Box>
-                      {route.distance && (
-                        <Typography variant="caption" color="text.secondary">
-                          {Math.round(route.distance)} km
-                        </Typography>
-                      )}
                     </Paper>
                   </Grid>
                 );
@@ -230,24 +242,24 @@ export default function AirlineRouteIntelligence({
 
         {/* Growth Trend */}
         {routeGrowth && (
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom color="text.secondary">
+          <Grid item xs={12} sm={6} md={4}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" gutterBottom color="text.secondary" sx={{ fontWeight: 600, mb: 2 }}>
                 Route Growth Trend
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 'auto' }}>
                 {routeGrowth === 'growing' ? (
-                  <TrendingUpIcon sx={{ fontSize: 48, color: 'success.main' }} />
+                  <TrendingUpIcon sx={{ fontSize: { xs: 40, md: 48 }, color: 'success.main', flexShrink: 0 }} />
                 ) : routeGrowth === 'declining' ? (
-                  <TrendingDownIcon sx={{ fontSize: 48, color: 'error.main' }} />
+                  <TrendingDownIcon sx={{ fontSize: { xs: 40, md: 48 }, color: 'error.main', flexShrink: 0 }} />
                 ) : (
-                  <TrendingFlatIcon sx={{ fontSize: 48, color: 'info.main' }} />
+                  <TrendingFlatIcon sx={{ fontSize: { xs: 40, md: 48 }, color: 'info.main', flexShrink: 0 }} />
                 )}
                 <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 600, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
                     {routeGrowth === 'growing' ? 'Growing' : routeGrowth === 'declining' ? 'Declining' : 'Stable'}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                     Network trend
                   </Typography>
                 </Box>
@@ -257,16 +269,16 @@ export default function AirlineRouteIntelligence({
         )}
 
         {/* Best Time to Fly */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom color="text.secondary">
+        <Grid item xs={12} sm={6} md={4}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom color="text.secondary" sx={{ fontWeight: 600, mb: 2 }}>
               Best Time to Fly
             </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body1" sx={{ mb: 1 }}>
+            <Box sx={{ mt: 'auto' }}>
+              <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 500 }}>
                 Peak Frequency Hours
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
                 Most flights operate during{' '}
                 <strong>morning (6 AM - 10 AM)</strong> and{' '}
                 <strong>evening (6 PM - 10 PM)</strong> hours for optimal schedule flexibility.
@@ -276,12 +288,12 @@ export default function AirlineRouteIntelligence({
         </Grid>
 
         {/* Reliability Summary */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom color="text.secondary">
+        <Grid item xs={12} sm={6} md={4}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom color="text.secondary" sx={{ fontWeight: 600, mb: 2 }}>
               Service Reliability
             </Typography>
-            <Box sx={{ mt: 2 }}>
+            <Box sx={{ mt: 'auto' }}>
               {(() => {
                 const stableCount = topRoutes.filter(
                   r => r.reliability === 'Very Stable' || r.reliability === 'Moderate'
@@ -289,10 +301,10 @@ export default function AirlineRouteIntelligence({
                 const reliabilityPercent = Math.round((stableCount / Math.max(topRoutes.length, 1)) * 100);
                 return (
                   <>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                    <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '2rem', md: '2.5rem' } }}>
                       {reliabilityPercent}%
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
                       Routes with stable service
                     </Typography>
                   </>
