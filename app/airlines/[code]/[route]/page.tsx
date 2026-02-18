@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { Container, Typography, Box, Grid, Paper, Divider, Link as MuiLink } from '@mui/material';
 import { getAirline, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getTerminalInfoForRoute, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
-import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, generateAirlineLocalBusinessSchema, parseRouteSlug } from '@/lib/seo';
+import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, generateAirlineLocalBusinessSchema, parseRouteSlug, generateRouteListSchema, generateAirportSchema, generateAirlineSchema } from '@/lib/seo';
 import { 
   extractRouteMetadata, 
   getBusiestHours, 
@@ -61,6 +61,12 @@ import YouTubeIcon from '@mui/icons-material/YouTube';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import StarIcon from '@mui/icons-material/Star';
+import AirlineAirportHeroSection from '@/components/airlines/AirlineAirportHeroSection';
+import AirlineRouteIntelligence from '@/components/airlines/AirlineRouteIntelligence';
+import AirlineSortableRouteTable from '@/components/airlines/AirlineSortableRouteTable';
+import AirlineRouteMap from '@/components/airlines/AirlineRouteMap';
+import AirlineExpandableRouteCard from '@/components/airlines/AirlineExpandableRouteCard';
+import AirlineInternalLinkingHub from '@/components/airlines/AirlineInternalLinkingHub';
 
 interface PageProps {
   params: {
@@ -119,18 +125,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         // Airline-City Page: Focus on "flights TO city" intent
         // Get city name from airport
         const cityName = airport.city || airportDisplay.split('(')[0].trim();
-        const title = metaTitle || `${airline.name} Flights to ${cityName} (${iata})`;
-        let description = metaDescription || `${airline.name} operates scheduled flights to ${cityName}, serving ${airportDisplay} with connections from multiple domestic and international cities.`;
+        
+        // Improved SEO title format: "Delta Airlines Flights from ATL – Schedules, Frequency & Stats | Triposia 2026"
+        const title = metaTitle || `${airline.name} Flights from ${iata} – Schedules, Frequency & Stats | Triposia 2026`;
+        
+        // Enhanced description with data depth
+        let description = metaDescription || `${airline.name} operates ${destinationsCount} direct route${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay} (${iata}) with ${flightsFrom.length * 7} weekly flights. View schedules, frequencies, aircraft types, and route intelligence. Updated 2026.`;
         
         if (!metaDescription) {
-          if (destinationsCount > 0) {
-            description += ` ${airline.name} serves ${destinationsCount} destination${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay}.`;
-          }
-          if (flightsFrom.length > 0) {
-            description += ` ${flightsFrom.length} daily departure${flightsFrom.length !== 1 ? 's' : ''} available.`;
-          }
           if (aircraftTypes.length > 0) {
-            description += ` Aircraft types: ${aircraftTypes.join(', ')}.`;
+            description += ` Aircraft: ${aircraftTypes.join(', ')}.`;
           }
         }
         
@@ -536,9 +540,142 @@ export default async function AirlineRoutePage({ params }: PageProps) {
       `Frequently Asked Questions about ${airline.name} flights at ${airportDisplay}`
     );
 
+    // Generate additional schemas for Route Intelligence Dashboard
+    const airportSchema = generateAirportSchema(
+      iata,
+      airportDisplay,
+      airport.city,
+      airport.country
+    );
+    
+    const airlineSchema = generateAirlineSchema(
+      airline.iata || airline.code || code,
+      airline.name,
+      airline.country,
+      airline.website
+    );
+
+    // Generate ItemList schema for routes
+    const routeListSchema = generateRouteListSchema(
+      routesFrom.filter(r => {
+        const airlineFlightsToDest = flightsFrom.filter(f => f.destination_iata === r.destination_iata);
+        return airlineFlightsToDest.length > 0;
+      }).map(r => ({
+        origin_iata: iata,
+        destination_iata: r.destination_iata,
+        destination_city: r.destination_city,
+        flights_per_day: `${flightsFrom.filter(f => f.destination_iata === r.destination_iata).length} flights`,
+      })),
+      iata,
+      airportDisplay
+    );
+
+    // Get related airports and routes for internal linking (moved after routesWithData calculation)
+
     // Import components needed for airport page
     const AirlineAirportTabs = (await import('@/components/airlines/AirlineAirportTabs')).default;
     const FlightCalendarWrapper = (await import('@/components/flights/FlightCalendarWrapperLazy')).default;
+
+    // Prepare data for new Route Intelligence Dashboard components
+    const { calculateDistance } = await import('@/lib/distance');
+    
+    // Helper to parse flights_per_day safely
+    const parseFlightsPerDay = (flightsPerDay: any): number => {
+      if (flightsPerDay == null || typeof flightsPerDay !== 'string') return 0;
+      try {
+        const match = String(flightsPerDay).match(/(\d+(?:\.\d+)?)/);
+        return match && match[1] ? parseFloat(match[1]) : 0;
+      } catch {
+        return 0;
+      }
+    };
+
+    // Calculate route data with distance, duration, weekly flights
+    const routesWithData = await Promise.all(
+      destinationsWithDisplay.map(async (dest) => {
+        const routeFlights = flightsFrom.filter(f => f.destination_iata === dest.iata);
+        const weeklyFlights = routeFlights.length * 7;
+        
+        // Get route metadata for distance and duration
+        const routeData = await getRouteWithMetadata(iata, dest.iata);
+        const routeMetadata = routeData ? extractRouteMetadata(routeData) : {};
+        
+        // Calculate distance if not available
+        let distance_km: number | undefined;
+        if (routeMetadata.distance) {
+          const distMatch = String(routeMetadata.distance).match(/(\d+(?:\.\d+)?)/);
+          if (distMatch) distance_km = parseFloat(distMatch[1]);
+        }
+        if (!distance_km && airport.lat && airport.lng && dest.airport?.lat && dest.airport?.lng) {
+          distance_km = calculateDistance(airport.lat, airport.lng, dest.airport.lat, dest.airport.lng);
+        }
+
+        // Get average duration from route metadata or flights
+        const duration = routeMetadata.averageDuration || 
+          (routeFlights.length > 0 ? getAverageDuration(routeFlights) : undefined);
+
+        // Determine reliability based on frequency
+        const daily = routeFlights.length;
+        let reliability: 'Very Stable' | 'Moderate' | 'Seasonal' | 'Limited' = 'Limited';
+        if (daily >= 5) reliability = 'Very Stable';
+        else if (daily >= 2) reliability = 'Moderate';
+        else if (daily >= 1) reliability = 'Seasonal';
+
+        // Get aircraft type from flights
+        const aircraftTypes = Array.from(new Set(routeFlights.map(f => f.aircraft).filter(Boolean)));
+        const aircraft = aircraftTypes.length > 0 ? aircraftTypes[0] : undefined;
+
+        return {
+          destination: dest.iata,
+          display: dest.display,
+          weeklyFlights,
+          duration,
+          distance: distance_km,
+          aircraft,
+          reliability,
+          is_domestic: dest.is_domestic,
+          country: dest.country,
+          lat: dest.airport?.lat,
+          lng: dest.airport?.lng,
+        };
+      })
+    );
+
+    // Calculate totals
+    const totalWeeklyFlights = routesWithData.reduce((sum, r) => sum + r.weeklyFlights, 0);
+    const internationalCount = routesWithData.filter(r => !r.is_domestic).length;
+    
+    // Get top 5 routes
+    const top5Routes = [...routesWithData]
+      .sort((a, b) => b.weeklyFlights - a.weeklyFlights)
+      .slice(0, 5)
+      .map(r => ({
+        destination: r.destination,
+        display: r.display,
+        weeklyFlights: r.weeklyFlights,
+        duration: r.duration,
+        distance: r.distance,
+        reliability: r.reliability,
+        aircraft: r.aircraft,
+      }));
+
+    // Determine route growth trend
+    const avgWeekly = routesWithData.length > 0 ? totalWeeklyFlights / routesWithData.length : 0;
+    const routeGrowth: 'growing' | 'stable' | 'declining' = 
+      avgWeekly >= 15 ? 'growing' : avgWeekly >= 7 ? 'stable' : 'declining';
+
+    // Get related airports and routes for internal linking
+    const { getEnhancedRelatedAirports, getAirlinePagesForAirport, getTopRoutePages, getCountryHubLink } = await import('@/lib/enhancedLinking');
+    
+    const relatedAirportsData = await getAirlinePagesForAirport(iata, 6);
+    const countryHub = await getCountryHubLink(airport);
+    
+    // Prepare top routes for internal linking
+    const topRoutesForLinking = top5Routes.map(r => ({
+      routeSlug: `${iata.toLowerCase()}-${r.destination.toLowerCase()}`,
+      display: `${airportDisplay} → ${r.display}`,
+      weeklyFlights: r.weeklyFlights,
+    }));
 
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -560,119 +697,105 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {airlineDeparturesListingSchema && <JsonLd data={airlineDeparturesListingSchema} />}
         {airlineArrivalsListingSchema && <JsonLd data={airlineArrivalsListingSchema} />}
         {airportFAQSchema && <JsonLd data={airportFAQSchema} />}
+        <JsonLd data={airportSchema} />
+        <JsonLd data={airlineSchema} />
+        {routeListSchema && <JsonLd data={routeListSchema} />}
 
-        {/* Airline-City Page H1: Focus on "flights TO city" intent */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-          <Typography variant="h1" gutterBottom sx={{ textAlign: 'left', fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }, lineHeight: { xs: 1.3, sm: 1.4 }, wordBreak: 'break-word', mb: 0 }}>
-            {airline.name} Flights to {cityName} ({iata})
-          </Typography>
-          {/* Reliability Badge */}
-          {(() => {
-            const reliability: 'Very Stable' | 'Moderate' | 'Seasonal' | 'Limited' = 
-              destinations.length >= 20 ? 'Very Stable' :
-              destinations.length >= 10 ? 'Moderate' :
-              destinations.length >= 5 ? 'Seasonal' : 'Limited';
-            return <ReliabilityBadge level={reliability} label={`${reliability} Service`} />;
-          })()}
-        </Box>
+        {/* Hero Section with AI-Ready Summary */}
+        <AirlineAirportHeroSection
+          airlineName={airline.name}
+          airportName={airport.name || airportDisplay}
+          airportCode={iata}
+          cityName={cityName}
+          totalDestinations={destinations.length}
+          totalWeeklyFlights={totalWeeklyFlights}
+          internationalCount={internationalCount}
+          topRoutes={top5Routes.map(r => ({
+            destination: r.destination,
+            display: r.display,
+            weeklyFlights: r.weeklyFlights,
+          }))}
+        />
 
-        {/* First paragraph: Explicit intent confirmation */}
-        <Typography variant="body1" sx={{ mb: 3, fontSize: '1.1rem', lineHeight: 1.8 }}>
-          {introText}
-        </Typography>
+        {/* Route Intelligence Dashboard */}
+        <AirlineRouteIntelligence
+          airlineName={airline.name}
+          airportCode={iata}
+          topRoutes={top5Routes}
+          totalRoutes={destinations.length}
+          totalWeeklyFlights={totalWeeklyFlights}
+          averageFrequency={avgWeekly}
+          routeGrowth={routeGrowth}
+        />
 
-        {/* Enhanced Route Data Section */}
-        <Box sx={{ mb: 3 }}>
-          <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Total Routes
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {destinations.length}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Daily Departures
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {flightsFrom.length}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Weekly Flights
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {flightsFrom.length * 7}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Delay Rate
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Placeholder - Data coming soon</strong>
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Box>
+        {/* Interactive Route Map */}
+        {airport.lat && airport.lng && (
+          <AirlineRouteMap
+            originIata={iata}
+            originName={airportDisplay}
+            originLat={airport.lat}
+            originLng={airport.lng}
+            routes={routesWithData.map(r => ({
+              iata: r.destination,
+              display: r.display,
+              lat: r.lat,
+              lng: r.lng,
+              flights_per_week: r.weeklyFlights,
+              flights_per_day: `${Math.round(r.weeklyFlights / 7)} flights`,
+              airline_count: 1,
+              distance_km: r.distance,
+              average_duration: r.duration,
+            }))}
+            airlineName={airline.name}
+          />
+        )}
 
-        {/* Top Destinations for Airline */}
-        {destinationsWithDisplay.length > 0 && (
+        {/* Expandable Route Cards */}
+        {routesWithData.length > 0 && (
           <Box sx={{ mb: 4 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
-              Top Destinations for {airline.name}
+            <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 3 }}>
+              All {airline.name} Routes from {airportDisplay}
             </Typography>
-            <Grid container spacing={2}>
-              {destinationsWithDisplay
-                .sort((a, b) => {
-                  const aFlights = flightsFrom.filter(f => f.destination_iata === a.iata).length;
-                  const bFlights = flightsFrom.filter(f => f.destination_iata === b.iata).length;
-                  return bFlights - aFlights;
-                })
-                .slice(0, 10)
-                .map((dest) => {
-                  const destFlights = flightsFrom.filter(f => f.destination_iata === dest.iata);
-                  const routeSlug = `${iata.toLowerCase()}-${dest.iata.toLowerCase()}`;
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {routesWithData
+                .sort((a, b) => b.weeklyFlights - a.weeklyFlights)
+                .map((route, idx) => {
+                  // Calculate popularity score (1-100) based on frequency rank
+                  const sortedByFrequency = [...routesWithData].sort((a, b) => b.weeklyFlights - a.weeklyFlights);
+                  const rank = sortedByFrequency.findIndex(r => r.destination === route.destination) + 1;
+                  const popularityScore = Math.max(1, 100 - (rank - 1) * (99 / routesWithData.length));
+                  
                   return (
-                    <Grid item xs={12} sm={6} md={4} key={dest.iata}>
-                      <Paper
-                        component={Link}
-                        href={`/airlines/${code.toLowerCase()}/${routeSlug}`}
-                        sx={{
-                          p: 2,
-                          textDecoration: 'none',
-                          display: 'block',
-                          height: '100%',
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          '&:hover': {
-                            bgcolor: 'action.hover',
-                            borderColor: 'primary.main',
-                            boxShadow: 2,
-                          },
-                          transition: 'all 0.2s',
-                        }}
-                      >
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                          {dest.display}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {destFlights.length} daily flight{destFlights.length !== 1 ? 's' : ''}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ~{destFlights.length * 7} flights/week
-                        </Typography>
-                      </Paper>
-                    </Grid>
+                    <AirlineExpandableRouteCard
+                      key={route.destination}
+                      originIata={iata}
+                      originDisplay={airportDisplay}
+                      destination={route.destination}
+                      display={route.display}
+                      weeklyFlights={route.weeklyFlights}
+                      duration={route.duration}
+                      distance={route.distance}
+                      aircraft={route.aircraft}
+                      reliability={route.reliability}
+                      is_domestic={route.is_domestic}
+                      seasonal={route.weeklyFlights < 7} // Consider routes with < 1 daily flight as seasonal
+                      popularityScore={popularityScore}
+                      airlineCode={code.toLowerCase()}
+                    />
                   );
                 })}
-            </Grid>
+            </Box>
           </Box>
+        )}
+
+        {/* Sortable Route Table */}
+        {routesWithData.length > 0 && (
+          <AirlineSortableRouteTable
+            routes={routesWithData}
+            airlineName={airline.name}
+            airlineCode={code.toLowerCase()}
+            originIata={iata}
+          />
         )}
 
         {/* Summary Stat Cards */}
@@ -948,50 +1071,20 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           />
         )}
 
-        {/* Related Airline-Airport Pages */}
-        {relatedAirports.length > 0 && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontSize: '1.75rem', mb: 2, textAlign: 'left' }}>
-              More {airline.name} Airport Pages
-            </Typography>
-            <Paper sx={{ p: 3 }}>
-              <Grid container spacing={2}>
-                {relatedAirports.map((related) => (
-                  <Grid item xs={12} sm={6} md={4} key={related.iata}>
-                    <Paper
-                      component={Link}
-                      href={`/airlines/${code.toLowerCase()}/${related.iata.toLowerCase()}`}
-                      sx={{
-                        p: 2,
-                        textDecoration: 'none',
-                        display: 'block',
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                          boxShadow: 2,
-                          transform: 'translateY(-2px)',
-                        },
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <FlightIcon sx={{ mr: 1, color: 'primary.main' }} />
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                          {airline.name} from {related.display}
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        View {airline.name} flights, schedules, and routes from {related.display}
-                      </Typography>
-                      <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                        View {airline.name} flights from {related.display} →
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-            </Paper>
-          </Box>
-        )}
+        {/* Internal Linking Hub */}
+        <AirlineInternalLinkingHub
+          airlineName={airline.name}
+          airlineCode={code.toLowerCase()}
+          airportIata={iata}
+          airportDisplay={airportDisplay}
+          relatedAirports={relatedAirportsData.map(a => ({
+            iata: a.airportPage.split('/').pop()?.toUpperCase() || '',
+            display: a.name,
+            routeCount: a.routeCount,
+          }))}
+          relatedRoutes={topRoutesForLinking}
+          countryHubLink={countryHub || undefined}
+        />
 
         {/* Weather Section */}
         {weather && (
