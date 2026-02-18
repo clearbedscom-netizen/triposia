@@ -43,9 +43,9 @@ export default function AirlineAirportHeroSection({
           borderRadius: 2,
         }}
       >
-        <Grid container spacing={3} alignItems="flex-start">
-          {/* Left Side: Title and Summary */}
-          <Grid item xs={12} md={7}>
+        <Box>
+          {/* Title and Summary */}
+          <Box sx={{ mb: 4 }}>
             <Typography
               variant="h1"
               gutterBottom
@@ -68,17 +68,7 @@ export default function AirlineAirportHeroSection({
                 mb: 2.5,
               }}
             >
-              {airlineName} operates{' '}
-              <strong>{totalWeeklyFlights.toLocaleString()} direct flights per week</strong> from{' '}
-              {airportName} ({airportCode}) to{' '}
-              <strong>{totalDestinations} destination{totalDestinations !== 1 ? 's' : ''}</strong>
-              {internationalCount > 0 && (
-                <>
-                  {' '}
-                  including <strong>{internationalCount} international route{internationalCount !== 1 ? 's' : ''}</strong>
-                </>
-              )}
-              . Updated 2026.
+              {airlineName} operates {totalDestinations} direct destination{totalDestinations !== 1 ? 's' : ''} from {cityName} ({airportCode}). Popular routes include {topRoutes.slice(0, 3).map(r => r.display).join(', ')}{topRoutes.length > 3 ? `, and ${topRoutes.length - 3} more` : ''}. Flights operate daily with {totalWeeklyFlights.toLocaleString()}+ weekly departures.
             </Typography>
             {topRoutes.length > 0 && (
               <Box sx={{ mt: 2.5 }}>
@@ -105,138 +95,136 @@ export default function AirlineAirportHeroSection({
                 </Box>
               </Box>
             )}
-          </Grid>
+          </Box>
 
-          {/* Right Side: Data Cards */}
-          <Grid item xs={12} md={5}>
-            <Grid container spacing={2}>
-              <Grid item xs={6} sm={3} md={12}>
-                <Paper
-                  sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    textAlign: 'center',
-                    bgcolor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    '&:hover': {
-                      boxShadow: 3,
-                      borderColor: 'primary.main',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.2s ease-in-out',
-                  }}
-                >
-                  <FlightIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
-                  <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
-                    {totalDestinations}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
-                    Destinations
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={3} md={12}>
-                <Paper
-                  sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    textAlign: 'center',
-                    bgcolor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    '&:hover': {
-                      boxShadow: 3,
-                      borderColor: 'primary.main',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.2s ease-in-out',
-                  }}
-                >
-                  <ScheduleIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
-                  <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
-                    {totalWeeklyFlights.toLocaleString()}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
-                    Weekly Flights
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={3} md={12}>
-                <Paper
-                  sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    textAlign: 'center',
-                    bgcolor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    '&:hover': {
-                      boxShadow: 3,
-                      borderColor: 'primary.main',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.2s ease-in-out',
-                  }}
-                >
-                  <AirlinesIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
-                  <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
-                    {airlineName.split(' ')[0]}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
-                    Airline
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={3} md={12}>
-                <Paper
-                  sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    textAlign: 'center',
-                    bgcolor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    '&:hover': {
-                      boxShadow: 3,
-                      borderColor: 'primary.main',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.2s ease-in-out',
-                  }}
-                >
-                  <PublicIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
-                  <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
-                    {internationalCount}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
-                    International
-                  </Typography>
-                </Paper>
-              </Grid>
+          {/* Data Cards - Below heading and description */}
+          <Grid container spacing={2}>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  textAlign: 'center',
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '&:hover': {
+                    boxShadow: 3,
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <FlightIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
+                  {totalDestinations}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
+                  Destinations
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  textAlign: 'center',
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '&:hover': {
+                    boxShadow: 3,
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <ScheduleIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
+                  {totalWeeklyFlights.toLocaleString()}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
+                  Weekly Flights
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  textAlign: 'center',
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '&:hover': {
+                    boxShadow: 3,
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <AirlinesIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
+                  {airlineName.split(' ')[0]}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
+                  Airline
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
+                  textAlign: 'center',
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '&:hover': {
+                    boxShadow: 3,
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <PublicIcon sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main', mb: 1 }} />
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.5rem', md: '2rem' } }}>
+                  {internationalCount}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
+                  International
+                </Typography>
+              </Paper>
             </Grid>
           </Grid>
-        </Grid>
+        </Box>
       </Paper>
     </Box>
   );

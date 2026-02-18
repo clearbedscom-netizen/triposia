@@ -7,6 +7,7 @@ import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import FlightIcon from '@mui/icons-material/Flight';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import Link from 'next/link';
+import TopRoutesBarChart from './TopRoutesBarChart';
 
 interface Route {
   destination: string;
@@ -153,17 +154,22 @@ export default function AirlineRouteIntelligence({
           </Paper>
         </Grid>
 
-        {/* Top Routes */}
+        {/* Top Routes Bar Chart */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: { xs: 2, md: 3 }, height: '100%' }}>
+          <TopRoutesBarChart routes={topRoutes} airlineName={airlineName} />
+        </Grid>
+
+        {/* Top Routes Cards */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: { xs: 2, md: 3 } }}>
             <Typography variant="h6" gutterBottom color="text.secondary" sx={{ mb: 3, fontWeight: 600 }}>
-              Top 5 Most Frequent Routes
+              Top 5 Most Frequent Routes - Details
             </Typography>
             <Grid container spacing={2}>
               {topRoutes.slice(0, 5).map((route, idx) => {
                 const routeSlug = `${airportCode.toLowerCase()}-${route.destination.toLowerCase()}`;
                 return (
-                  <Grid item xs={12} sm={6} key={idx}>
+                  <Grid item xs={12} sm={6} md={4} lg={2.4} key={idx}>
                     <Paper
                       component={Link}
                       href={`/flights/${routeSlug}`}
@@ -187,7 +193,7 @@ export default function AirlineRouteIntelligence({
                     >
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
                         <FlightIcon sx={{ fontSize: 20, color: 'primary.main', mt: 0.5, flexShrink: 0 }} />
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, lineHeight: 1.3 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, flex: 1, lineHeight: 1.3 }}>
                           {route.display}
                         </Typography>
                       </Box>

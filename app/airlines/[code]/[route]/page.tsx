@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { Container, Typography, Box, Grid, Paper, Divider, Link as MuiLink } from '@mui/material';
+import { Container, Typography, Box, Grid, Paper, Divider, Link as MuiLink, Chip } from '@mui/material';
 import { getAirline, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getTerminalInfoForRoute, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
 import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, generateAirlineLocalBusinessSchema, parseRouteSlug, generateRouteListSchema, generateAirportSchema, generateAirlineSchema } from '@/lib/seo';
 import { 
@@ -113,7 +113,66 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         // Get routes for destination/origin counts
         const routesFrom = await getRoutesFromAirport(iata);
         const routesTo = await getRoutesToAirport(iata);
-        const destinationsCount = new Set(routesFrom.map(r => r.destination_iata)).size;
+        
+        // Calculate actual destination count (unique destinations with airline flights)
+        const destinationsMap = new Map<string, { iata: string; city: string; flights_per_day: string; is_domestic?: boolean; country?: string }>();
+        const uniqueDestinations = Array.from(new Set(routesFrom.map(r => r.destination_iata)));
+        
+        // Fetch all destination airports in parallel
+        const destAirports = await Promise.all(
+          uniqueDestinations.map(dest => getAirportSummary(dest))
+        );
+        
+        // Build destinations map - only include routes where this airline has flights
+        routesFrom.forEach(route => {
+          const airlineFlightsToDest = flightsFrom.filter(f => f.destination_iata === route.destination_iata);
+          if (airlineFlightsToDest.length > 0 && !destinationsMap.has(route.destination_iata)) {
+            const destAirport = destAirports.find(a => a?.iata_from === route.destination_iata);
+            const destCountry = destAirport?.country;
+            const isDomestic = destCountry && destCountry === airport.country ? true : false;
+            destinationsMap.set(route.destination_iata, {
+              iata: route.destination_iata,
+              city: destAirport?.city || route.destination_iata,
+              flights_per_day: `${airlineFlightsToDest.length} flight${airlineFlightsToDest.length !== 1 ? 's' : ''}`,
+              is_domestic: isDomestic,
+              country: destCountry,
+            });
+          }
+        });
+        const destinations = Array.from(destinationsMap.values());
+        const destinationsCount = destinations.length;
+        
+        // Calculate total weekly flights
+        // Try to use route data first (more accurate), fallback to flight count estimation
+        let totalWeeklyFlights = 0;
+        const routesWithFlights = routesFrom.filter(route => {
+          const airlineFlightsToDest = flightsFrom.filter(f => f.destination_iata === route.destination_iata);
+          return airlineFlightsToDest.length > 0;
+        });
+        
+        if (routesWithFlights.length > 0) {
+          // Use route flights_per_day if available
+          routesWithFlights.forEach(route => {
+            if (route.flights_per_day) {
+              const weekly = calculateFlightsPerWeek(route.flights_per_day);
+              if (weekly !== undefined) {
+                totalWeeklyFlights += weekly;
+              } else {
+                // Fallback: count flights to this destination and multiply by 7
+                const airlineFlightsToDest = flightsFrom.filter(f => f.destination_iata === route.destination_iata);
+                totalWeeklyFlights += airlineFlightsToDest.length * 7;
+              }
+            } else {
+              // Fallback: count flights to this destination and multiply by 7
+              const airlineFlightsToDest = flightsFrom.filter(f => f.destination_iata === route.destination_iata);
+              totalWeeklyFlights += airlineFlightsToDest.length * 7;
+            }
+          });
+        } else {
+          // Ultimate fallback: estimate from total flights
+          totalWeeklyFlights = flightsFrom.length * 7;
+        }
+        
         const originsCount = new Set(routesTo.map(r => r.origin_iata)).size;
         
         // Get aircraft types
@@ -126,13 +185,50 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         // Get city name from airport
         const cityName = airport.city || airportDisplay.split('(')[0].trim();
         
-        // Improved SEO title format: "Delta Airlines Flights from ATL – Schedules, Frequency & Stats | Triposia 2026"
-        const title = metaTitle || `${airline.name} Flights from ${iata} – Schedules, Frequency & Stats | Triposia 2026`;
+        // Dynamic title with destination count and weekly flights
+        // Format: "[Airline Name] Flights from [City Name] ([Code]) – [Destination Count] Destinations & [Weekly Flight Count] Weekly Flights | Triposia 2026"
+        let title = metaTitle;
+        if (!title) {
+          const baseTitle = `${airline.name} Flights from ${cityName} (${iata})`;
+          const suffix = `| Triposia 2026`;
+          
+          // Build counts string with fallback logic
+          let countsStr = '';
+          if (destinationsCount > 0 && totalWeeklyFlights > 0) {
+            countsStr = ` – ${destinationsCount} Destinations & ${totalWeeklyFlights.toLocaleString()} Weekly Flights`;
+          } else if (destinationsCount > 0) {
+            countsStr = ` – ${destinationsCount} Destinations`;
+          } else if (totalWeeklyFlights > 0) {
+            countsStr = ` – ${totalWeeklyFlights.toLocaleString()} Weekly Flights`;
+          }
+          
+          // Check title length (target: under 65 characters)
+          const fullTitle = `${baseTitle}${countsStr} ${suffix}`;
+          if (fullTitle.length <= 65) {
+            title = fullTitle;
+          } else {
+            // Prioritize destination count over weekly flights if too long
+          if (destinationsCount > 0) {
+              const shortCountsStr = ` – ${destinationsCount} Destinations`;
+              const shortTitle = `${baseTitle}${shortCountsStr} ${suffix}`;
+              title = shortTitle.length <= 65 ? shortTitle : `${baseTitle} ${suffix}`;
+            } else {
+              title = `${baseTitle} ${suffix}`;
+            }
+          }
+        }
         
-        // Enhanced description with data depth
-        let description = metaDescription || `${airline.name} operates ${destinationsCount} direct route${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay} (${iata}) with ${flightsFrom.length * 7} weekly flights. View schedules, frequencies, aircraft types, and route intelligence. Updated 2026.`;
-        
-        if (!metaDescription) {
+        // Enhanced description with dynamic counts
+        let description = metaDescription;
+        if (!description) {
+          if (destinationsCount > 0 && totalWeeklyFlights > 0) {
+            description = `${airline.name} operates ${destinationsCount} direct destination${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay} (${iata}) with ${totalWeeklyFlights.toLocaleString()} weekly departures. View schedules, frequencies, aircraft types, and route intelligence. Updated 2026.`;
+          } else if (destinationsCount > 0) {
+            description = `${airline.name} operates ${destinationsCount} direct destination${destinationsCount !== 1 ? 's' : ''} from ${airportDisplay} (${iata}). View schedules, frequencies, aircraft types, and route intelligence. Updated 2026.`;
+          } else {
+            description = `${airline.name} operates flights from ${airportDisplay} (${iata}). View schedules, frequencies, aircraft types, and route intelligence. Updated 2026.`;
+          }
+          
           if (aircraftTypes.length > 0) {
             description += ` Aircraft: ${aircraftTypes.join(', ')}.`;
           }
@@ -717,6 +813,21 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           }))}
         />
 
+        {/* How Many Destinations Section */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 3 }}>
+            How Many Destinations Does {airline.name} Serve from {cityName} ({iata})?
+          </Typography>
+          <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {airline.name} serves <strong>{destinations.length} direct destination{destinations.length !== 1 ? 's' : ''}</strong> from {cityName} ({iata}), operating <strong>{totalWeeklyFlights.toLocaleString()} weekly departures</strong>.
+              {internationalCount > 0 && (
+                <> This includes <strong>{internationalCount} international route{internationalCount !== 1 ? 's' : ''}</strong> and <strong>{destinations.length - internationalCount} domestic route{(destinations.length - internationalCount) !== 1 ? 's' : ''}</strong>.</>
+              )}
+            </Typography>
+          </Paper>
+        </Box>
+
         {/* Route Intelligence Dashboard */}
         <AirlineRouteIntelligence
           airlineName={airline.name}
@@ -754,7 +865,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {routesWithData.length > 0 && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 3 }}>
-              All {airline.name} Routes from {airportDisplay}
+              Direct {airline.name} Destinations from {iata}
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {routesWithData
@@ -784,7 +895,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                     />
                   );
                 })}
-            </Box>
+        </Box>
           </Box>
         )}
 
@@ -797,6 +908,62 @@ export default async function AirlineRoutePage({ params }: PageProps) {
             originIata={iata}
           />
         )}
+
+        {/* Domestic vs International Routes */}
+        {routesWithData.length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 3 }}>
+              Domestic vs International Routes
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
+                  <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                    {routesWithData.filter(r => r.is_domestic === true).length}
+                </Typography>
+                  <Typography variant="body1">Domestic Routes</Typography>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'info.light', color: 'info.contrastText' }}>
+                  <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                    {routesWithData.filter(r => r.is_domestic === false).length}
+                </Typography>
+                  <Typography variant="body1">International Routes</Typography>
+                </Paper>
+              </Grid>
+              </Grid>
+          </Box>
+        )}
+
+        {/* Aircraft Types Used */}
+        {routesWithData.length > 0 && (() => {
+          const aircraftTypes = Array.from(new Set(
+            routesWithData.map(r => r.aircraft).filter(Boolean)
+          ));
+          return aircraftTypes.length > 0 ? (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 3 }}>
+                Aircraft Types Used
+                </Typography>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  {airline.name} uses the following aircraft types on routes from {cityName} ({iata}):
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {aircraftTypes.map((aircraft, idx) => (
+                    <Chip
+                      key={idx}
+                      label={aircraft}
+                      variant="outlined"
+                      sx={{ fontWeight: 500 }}
+                    />
+                  ))}
+                </Box>
+          </Paper>
+        </Box>
+          ) : null;
+        })()}
 
         {/* Summary Stat Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -838,7 +1005,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {destinations.length > 0 && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 3, textAlign: 'left' }}>
-              Most frequent {airline.name} routes to {cityName}
+              Most Popular Routes
             </Typography>
             <Grid container spacing={2}>
               {destinationsWithDisplay.slice(0, 12).map((dest) => {
@@ -959,8 +1126,8 @@ export default async function AirlineRoutePage({ params }: PageProps) {
                   if (airport.terminals && airport.terminals.length > 0) {
                     const mainTerminal = airport.terminals.find(term => 
                       term?.name && (
-                        term.name.toLowerCase().includes('main') || 
-                        term.name.toLowerCase() === '1'
+                      term.name.toLowerCase().includes('main') || 
+                      term.name.toLowerCase() === '1'
                       )
                     );
                     terminalNumber = mainTerminal?.name || 'Terminal 1';
@@ -1157,7 +1324,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
         {airportFAQs.length > 0 && (
           <Box sx={{ mt: 4 }}>
             <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 2, textAlign: 'left' }}>
-              Frequently Asked Questions about {airline.name} Flights at {airportDisplay}
+              Frequently Asked Questions
             </Typography>
             <Paper sx={{ p: 3 }}>
               {airportFAQs.map((faq, idx) => (
