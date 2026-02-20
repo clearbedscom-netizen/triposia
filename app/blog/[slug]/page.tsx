@@ -25,7 +25,7 @@ import { CalendarToday, Person, Category as CategoryIcon, AccessTime } from '@mu
 
 // Use dynamic rendering
 export const dynamic = 'force-dynamic';
-export const revalidate = 300; // Revalidate every 5 minutes for faster image updates
+export const revalidate = 60; // Revalidate every 1 minute for faster image updates
 
 interface PageProps {
   params: {

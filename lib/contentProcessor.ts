@@ -80,26 +80,36 @@ export function processContentForSEO(
   
   // Now process plain image URLs (with file extensions)
   // Match URLs ending with image extensions that are NOT inside HTML tags
-  const imageUrlPattern = /(https?:\/\/[^\s<>"']+\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?[^\s<>"']*)?)/gi;
-  processed = processed.replace(imageUrlPattern, (imageUrl) => {
+  // Improved pattern to catch URLs on new lines, after text, or standalone
+  const imageUrlPattern = /(?:^|[\s>])(https?:\/\/[^\s<>"']+\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?[^\s<>"']*)?)(?:\s|$|<\/)/gim;
+  processed = processed.replace(imageUrlPattern, (match, imageUrl) => {
+    // Check if this URL is already inside a protected placeholder
+    if (match.includes('__PROTECTED_')) {
+      return match; // Skip if already protected
+    }
+    
     // Convert plain URL to img tag
     const altText = title || defaultAltText || 'Blog post image';
     const imageUrlWithCache = updatedAt ? addCacheBustingToImageUrl(imageUrl, updatedAt) : imageUrl;
-    return `<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`;
+    // Preserve whitespace before if present
+    const prefix = match.startsWith(' ') || match.startsWith('>') ? match[0] : '';
+    return `${prefix}<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`;
   });
 
   // Also handle ImageKit and other CDN URLs that might not have file extensions
   // Pattern for ImageKit URLs: https://ik.imagekit.io/...
-  const imageKitPattern = /(https?:\/\/ik\.imagekit\.io\/[^\s<>"']+)/gi;
-  processed = processed.replace(imageKitPattern, (imageUrl) => {
-    // Skip if it looks like it's part of a query string or path
-    if (imageUrl.includes('?') && !imageUrl.match(/\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?|$)/i)) {
-      return imageUrl; // Might be a query parameter, skip
-    }
+  // Match URLs on their own line or after whitespace
+  const imageKitPattern = /(?:^|\s)(https?:\/\/ik\.imagekit\.io\/[^\s<>"']+)(?:\s|$)/gim;
+  processed = processed.replace(imageKitPattern, (match, imageUrl) => {
+    // Skip if it looks like it's part of a query string or path (but allow ImageKit URLs with query params)
+    // ImageKit URLs often have query params, so we allow them
     
     const altText = title || defaultAltText || 'Blog post image';
     const imageUrlWithCache = updatedAt ? addCacheBustingToImageUrl(imageUrl, updatedAt) : imageUrl;
-    return `<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`;
+    // Replace the match with the img tag, preserving surrounding whitespace
+    const beforeMatch = match.startsWith(' ') ? ' ' : '';
+    const afterMatch = match.endsWith(' ') ? ' ' : '';
+    return `${beforeMatch}<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />${afterMatch}`;
   });
   
   // Restore protected content
@@ -108,15 +118,17 @@ export function processContentForSEO(
   });
 
   // 0.5. Add cache-busting to existing image URLs if updatedAt is provided
+  // This ensures images are refreshed when post is updated
   if (updatedAt) {
     processed = processed.replace(
       /<img([^>]*?src\s*=\s*["'])([^"']+)(["'][^>]*?)>/gi,
       (match, before, src, after) => {
-        // Skip if already has cache-busting
-        if (src.includes('v=') || src.includes('updated_at=') || src.includes('t=')) {
-          return match;
-        }
-        const updatedSrc = addCacheBustingToImageUrl(src, updatedAt);
+        // Always update cache-busting parameter to force refresh
+        // Remove old cache-busting params if present
+        const cleanSrc = src.replace(/[?&](v|updated_at|t)=[^&]*/g, '');
+        const separator = cleanSrc.includes('?') ? '&' : '?';
+        const timestampValue = new Date(updatedAt).getTime();
+        const updatedSrc = `${cleanSrc}${separator}v=${timestampValue}`;
         return `<img${before}${updatedSrc}${after}>`;
       }
     );

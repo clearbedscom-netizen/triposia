@@ -68,7 +68,8 @@ export async function fetchPosts(params: FetchPostsParams = {}): Promise<Post[]>
 
     const url = `${CONTENT_API_BASE}/posts?${queryParams.toString()}`;
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
@@ -92,7 +93,8 @@ export async function fetchPostBySlug(slug: string, domainId?: number): Promise<
     const url = `${CONTENT_API_BASE}/posts/slug/${slug}?domain_id=${did}`;
     
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
@@ -119,7 +121,8 @@ export async function fetchCategories(domainId?: number): Promise<Category[]> {
     const url = `${CONTENT_API_BASE}/categories?domain_id=${did}`;
     
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
@@ -142,7 +145,8 @@ export async function fetchCategoryBySlug(slug: string): Promise<Category | null
     const url = `${CONTENT_API_BASE}/categories/slug/${slug}`;
     
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
@@ -172,7 +176,8 @@ export async function fetchAuthors(): Promise<Author[]> {
     const url = `${CONTENT_API_BASE}/authors`;
     
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
@@ -195,7 +200,8 @@ export async function fetchAuthorBySlug(slug: string): Promise<Author | null> {
     const url = `${CONTENT_API_BASE}/authors/slug/${slug}`;
     
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
@@ -221,7 +227,8 @@ export async function fetchAuthor(idOrSlug: string | number): Promise<Author | n
     const url = `${CONTENT_API_BASE}/authors/${idOrSlug}`;
     
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Revalidate every 5 minutes for faster updates
+      next: { revalidate: 60 }, // Revalidate every 1 minute for faster image updates
+      cache: 'no-store', // Always fetch fresh data to show updated images immediately
     });
 
     if (!response.ok) {
