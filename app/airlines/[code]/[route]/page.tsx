@@ -20,7 +20,7 @@ import {
   getTerminalsForRoute
 } from '@/lib/routeUtils';
 import JsonLd from '@/components/seo/JsonLd';
-import Breadcrumbs from '@/components/layout/Breadcrumbs';
+import Breadcrumbs from '@/components/layout/BreadcrumbsLazy';
 import FlightTable from '@/components/ui/FlightTableLazy';
 import StatCard from '@/components/ui/StatCard';
 import RouteHeader from '@/components/flights/RouteHeader';
@@ -106,13 +106,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const airport = await getAirportSummary(iata);
       
       if (airline && airport) {
-        const airportDisplay = await formatAirportName(iata, airport);
-        const flightsFrom = await getAirlineFlightsFromAirport(code, iata);
-        const flightsTo = await getAirlineFlightsToAirport(code, iata);
-        
-        // Get routes for destination/origin counts
-        const routesFrom = await getRoutesFromAirport(iata);
-        const routesTo = await getRoutesToAirport(iata);
+        // Parallelize critical queries
+        const [
+          airportDisplay,
+          flightsFrom,
+          flightsTo,
+          routesFrom,
+          routesTo,
+        ] = await Promise.all([
+          formatAirportName(iata, airport),
+          getAirlineFlightsFromAirport(code, iata),
+          getAirlineFlightsToAirport(code, iata),
+          getRoutesFromAirport(iata),
+          getRoutesToAirport(iata),
+        ]);
         
         // Calculate actual destination count (unique destinations with airline flights)
         const destinationsMap = new Map<string, { iata: string; city: string; flights_per_day: string; is_domestic?: boolean; country?: string }>();
@@ -866,7 +873,7 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           <Box sx={{ mb: 4 }}>
             <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, mb: 3 }}>
               Direct {airline.name} Destinations from {iata}
-            </Typography>
+        </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {routesWithData
                 .sort((a, b) => b.weeklyFlights - a.weeklyFlights)
@@ -1691,20 +1698,39 @@ export default async function AirlineRoutePage({ params }: PageProps) {
   }
   
   // Get ALL data from flights route page (SAME DATA SOURCE as /flights/del-bom)
-  const route = await getRoute(origin, destination);
-  const deepRoute = await getDeepRoute(origin, destination);
-  const routeWithMetadata = await getRouteWithMetadata(origin, destination);
-  const allFlights = await getFlightsByRoute(origin, destination); // SAME as /flights/del-bom
-  const originAirport = await getAirportSummary(origin);
-  const destinationAirport = await getAirportSummary(destination);
-  const pois = await getPoisByAirport(destination, 6);
-  const apois = await getApoisByAirport(destination, 6);
+  // Parallelize critical queries for faster page load
+  const [
+    route,
+    routeWithMetadata,
+    allFlights,
+    originAirport,
+    destinationAirport,
+  ] = await Promise.all([
+    getRoute(origin, destination),
+    getRouteWithMetadata(origin, destination),
+    getFlightsByRoute(origin, destination), // SAME as /flights/del-bom
+    getAirportSummary(origin),
+    getAirportSummary(destination),
+  ]);
   
-  // Fetch travel decision data for destination airport
-  const destinationWeather = await getWeatherByAirport(destination);
-  const destinationBookingInsights = await getBookingInsightsByAirport(destination);
-  const destinationPriceTrends = await getPriceTrendsByAirport(destination);
-  const destinationSeasonalInsights = await getAirlineSeasonalInsightsByAirport(destination);
+  // Defer non-critical data fetching (can be loaded after initial render)
+  const [
+    deepRoute,
+    pois,
+    apois,
+    destinationWeather,
+    destinationBookingInsights,
+    destinationPriceTrends,
+    destinationSeasonalInsights,
+  ] = await Promise.all([
+    getDeepRoute(origin, destination),
+    getPoisByAirport(destination, 6),
+    getApoisByAirport(destination, 6),
+    getWeatherByAirport(destination),
+    getBookingInsightsByAirport(destination),
+    getPriceTrendsByAirport(destination),
+    getAirlineSeasonalInsightsByAirport(destination),
+  ]);
   
   // Filter flights by airline code (SIMPLE FILTER)
   const airlineIataCode = airline.iata || airline.code || code.toUpperCase();
@@ -1750,11 +1776,17 @@ export default async function AirlineRoutePage({ params }: PageProps) {
   const distance = routeMetadata.distance;
   const airlines = Array.from(new Set(allFlights.map(f => f.airline_name)));
   const averageDuration = route?.average_duration || route?.typical_duration || routeMetadata.averageDuration;
-  const operatingAirlines = await getAirlinesForRoute(origin, destination, allFlights);
   
-  // Get related routes from origin and destination airports
-  const routesFromOrigin = await getRelatedRoutes(origin, 4);
-  const routesFromDest = await getRelatedRoutes(destination, 4);
+  // Parallelize related data fetching
+  const [
+    operatingAirlines,
+    routesFromOrigin,
+    routesFromDest,
+  ] = await Promise.all([
+    getAirlinesForRoute(origin, destination, allFlights),
+    getRelatedRoutes(origin, 4),
+    getRelatedRoutes(destination, 4),
+  ]);
   const relatedRoutes = [
     ...routesFromOrigin.filter(r => r.destination_iata !== destination),
     ...routesFromDest.filter(r => r.origin_iata !== origin && r.destination_iata !== origin)

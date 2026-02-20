@@ -54,11 +54,68 @@ export function processContentForSEO(
   // Note: This is server-side, so we'll use string manipulation
   let processed = html;
 
-  // 0. Add cache-busting to image URLs if updatedAt is provided
+  // 0. Auto-detect and convert plain image URLs to <img> tags
+  // This handles cases where users paste image URLs directly into the content
+  // We need to process this carefully to avoid converting URLs that are already in tags
+  
+  // First, protect existing img tags and links by temporarily replacing them
+  const protectedContent: Array<{ placeholder: string; original: string }> = [];
+  let protectIndex = 0;
+  
+  // Protect existing img tags
+  processed = processed.replace(/<img[^>]*>/gi, (match) => {
+    const placeholder = `__PROTECTED_IMG_${protectIndex}__`;
+    protectedContent.push({ placeholder, original: match });
+    protectIndex++;
+    return placeholder;
+  });
+  
+  // Protect existing links (including image links)
+  processed = processed.replace(/<a[^>]*>[\s\S]*?<\/a>/gi, (match) => {
+    const placeholder = `__PROTECTED_LINK_${protectIndex}__`;
+    protectedContent.push({ placeholder, original: match });
+    protectIndex++;
+    return placeholder;
+  });
+  
+  // Now process plain image URLs (with file extensions)
+  // Match URLs ending with image extensions that are NOT inside HTML tags
+  const imageUrlPattern = /(https?:\/\/[^\s<>"']+\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?[^\s<>"']*)?)/gi;
+  processed = processed.replace(imageUrlPattern, (imageUrl) => {
+    // Convert plain URL to img tag
+    const altText = title || defaultAltText || 'Blog post image';
+    const imageUrlWithCache = updatedAt ? addCacheBustingToImageUrl(imageUrl, updatedAt) : imageUrl;
+    return `<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`;
+  });
+
+  // Also handle ImageKit and other CDN URLs that might not have file extensions
+  // Pattern for ImageKit URLs: https://ik.imagekit.io/...
+  const imageKitPattern = /(https?:\/\/ik\.imagekit\.io\/[^\s<>"']+)/gi;
+  processed = processed.replace(imageKitPattern, (imageUrl) => {
+    // Skip if it looks like it's part of a query string or path
+    if (imageUrl.includes('?') && !imageUrl.match(/\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?|$)/i)) {
+      return imageUrl; // Might be a query parameter, skip
+    }
+    
+    const altText = title || defaultAltText || 'Blog post image';
+    const imageUrlWithCache = updatedAt ? addCacheBustingToImageUrl(imageUrl, updatedAt) : imageUrl;
+    return `<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`;
+  });
+  
+  // Restore protected content
+  protectedContent.forEach(({ placeholder, original }) => {
+    processed = processed.replace(placeholder, original);
+  });
+
+  // 0.5. Add cache-busting to existing image URLs if updatedAt is provided
   if (updatedAt) {
     processed = processed.replace(
       /<img([^>]*?src\s*=\s*["'])([^"']+)(["'][^>]*?)>/gi,
       (match, before, src, after) => {
+        // Skip if already has cache-busting
+        if (src.includes('v=') || src.includes('updated_at=') || src.includes('t=')) {
+          return match;
+        }
         const updatedSrc = addCacheBustingToImageUrl(src, updatedAt);
         return `<img${before}${updatedSrc}${after}>`;
       }
@@ -292,17 +349,37 @@ export function extractTextContent(html: string): string {
 }
 
 /**
- * Generate image schema for blog post images
+ * Generate enhanced image schema for blog post images with full ImageObject properties
  */
-export function generateImageSchema(images: Array<{ src: string; alt?: string }>): Array<{
+export function generateImageSchema(images: Array<{ src: string; alt?: string; width?: number; height?: number }>): Array<{
   '@type': 'ImageObject';
   url: string;
+  contentUrl: string;
+  width?: number;
+  height?: number;
+  encodingFormat?: string;
   caption?: string;
+  name?: string;
+  description?: string;
 }> {
-  return images.map(img => ({
-    '@type': 'ImageObject' as const,
-    url: img.src,
-    ...(img.alt && { caption: img.alt }),
-  }));
+  return images.map(img => {
+    // Detect image format from URL
+    const encodingFormat = img.src.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' : 
+                          img.src.match(/\.png$/i) ? 'image/png' :
+                          img.src.match(/\.webp$/i) ? 'image/webp' :
+                          img.src.match(/\.gif$/i) ? 'image/gif' :
+                          img.src.match(/\.svg$/i) ? 'image/svg+xml' : 'image/jpeg';
+    
+    return {
+      '@type': 'ImageObject' as const,
+      url: img.src,
+      contentUrl: img.src, // Required for ImageObject
+      ...(img.width && { width: img.width }),
+      ...(img.height && { height: img.height }),
+      encodingFormat,
+      ...(img.alt && { caption: img.alt, name: img.alt }),
+      ...(img.alt && { description: img.alt }),
+    };
+  });
 }
 

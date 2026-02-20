@@ -178,8 +178,17 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   // Extract images from content for schema
   const contentImages = extractImagesFromContent(post.content_html || '');
-  const allImages = post.featured_image 
-    ? [{ src: post.featured_image, alt: post.title }, ...contentImages]
+  
+  // Prepare featured image with enhanced schema properties
+  const featuredImageForSchema = post.featured_image ? {
+    src: post.featured_image,
+    alt: post.title || 'Featured image',
+    width: 1200,
+    height: 630,
+  } : null;
+  
+  const allImages = featuredImageForSchema 
+    ? [featuredImageForSchema, ...contentImages]
     : contentImages;
 
   // Calculate metrics
@@ -213,8 +222,24 @@ export default async function BlogPostPage({ params }: PageProps) {
     { name: post.title, url: postUrl },
   ]);
 
-  // Generate image schemas for all images in the post
+  // Generate enhanced image schemas for all images in the post
   const imageSchemas = allImages.length > 0 ? generateImageSchema(allImages) : [];
+  
+  // Use featured image as primary image for schema (if available)
+  const primaryImageSchema = featuredImageForSchema ? {
+    '@type': 'ImageObject',
+    url: featuredImageForSchema.src,
+    contentUrl: featuredImageForSchema.src,
+    width: featuredImageForSchema.width || 1200,
+    height: featuredImageForSchema.height || 630,
+    encodingFormat: featuredImageForSchema.src.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' : 
+                   featuredImageForSchema.src.match(/\.png$/i) ? 'image/png' :
+                   featuredImageForSchema.src.match(/\.webp$/i) ? 'image/webp' :
+                   featuredImageForSchema.src.match(/\.gif$/i) ? 'image/gif' : 'image/jpeg',
+    caption: featuredImageForSchema.alt || post.title,
+    name: post.title,
+    description: post.excerpt || post.title,
+  } : (imageSchemas.length > 0 ? imageSchemas[0] : undefined);
 
   // Prepare author details for schema
   const authorSameAs = author ? (
@@ -236,7 +261,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     description: post.excerpt || generateMetaDescription(post.excerpt, post.content_html),
     publishedTime: post.published_at || new Date().toISOString(),
     modifiedTime: post.updated_at || post.published_at || undefined,
-    image: post.featured_image || undefined,
+    image: primaryImageSchema ? (typeof primaryImageSchema === 'string' ? primaryImageSchema : primaryImageSchema.url) : undefined,
     authorName: author?.name || 'Admin',
     authorUrl: author?.slug ? `${siteUrl}/blog/author/${author.slug}` : undefined,
     authorImage: author?.avatar || undefined,
@@ -255,10 +280,12 @@ export default async function BlogPostPage({ params }: PageProps) {
   // Enhance schema with all images from content
   const blogPostingSchema = {
     ...blogPostingSchemaBase,
-    ...(imageSchemas.length > 0 && {
-      image: imageSchemas.length === 1 
-        ? imageSchemas[0]
-        : imageSchemas, // Multiple images as array
+    ...(primaryImageSchema && {
+      image: primaryImageSchema,
+    }),
+    // Include all images for rich results
+    ...(imageSchemas.length > 1 && {
+      associatedMedia: imageSchemas.slice(1), // All other images
     }),
   };
 
@@ -476,6 +503,12 @@ export default async function BlogPostPage({ params }: PageProps) {
             
             const featuredImageUrl = getImageUrlWithCacheBusting(post.featured_image);
             
+            // Detect image format for encodingFormat
+            const encodingFormat = post.featured_image.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' : 
+                                  post.featured_image.match(/\.png$/i) ? 'image/png' :
+                                  post.featured_image.match(/\.webp$/i) ? 'image/webp' :
+                                  post.featured_image.match(/\.gif$/i) ? 'image/gif' : 'image/jpeg';
+            
             return (
               <Box 
                 sx={{ 
@@ -490,8 +523,13 @@ export default async function BlogPostPage({ params }: PageProps) {
                 itemType="https://schema.org/ImageObject"
               >
                 <meta itemProp="url" content={featuredImageUrl} />
+                <meta itemProp="contentUrl" content={featuredImageUrl} />
                 <meta itemProp="width" content="1200" />
                 <meta itemProp="height" content="630" />
+                <meta itemProp="encodingFormat" content={encodingFormat} />
+                <meta itemProp="caption" content={post.title || 'Featured image'} />
+                <meta itemProp="name" content={post.title || 'Featured image'} />
+                <meta itemProp="description" content={post.excerpt || post.title || 'Featured image'} />
                 <Box
                   component="img"
                   src={featuredImageUrl}

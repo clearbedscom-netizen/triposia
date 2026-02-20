@@ -1072,12 +1072,18 @@ export function generateBlogPostingSchema({
     datePublished: publishedTime,
     ...(modifiedTime && { dateModified: modifiedTime }),
     ...(image && {
-      image: {
+      image: typeof image === 'string' ? {
         '@type': 'ImageObject',
         url: image,
+        contentUrl: image,
         width: 1200,
         height: 630,
-      },
+        encodingFormat: image.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' : 
+                       image.match(/\.png$/i) ? 'image/png' :
+                       image.match(/\.webp$/i) ? 'image/webp' :
+                       image.match(/\.gif$/i) ? 'image/gif' : 'image/jpeg',
+        caption: title,
+      } : image, // If image is already an object (from generateImageSchema), use it as-is
     }),
     mainEntityOfPage: {
       '@type': 'WebPage',
