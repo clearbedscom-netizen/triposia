@@ -1,74 +1,41 @@
-# Blog Image Always Show Fix
+# Blog Image Auto-Detection Fix
 
-## Problem
-Images pushed to the blog post collection were not always showing on the page, even after updates.
+## Issue
+Images inserted into the blog post collection (`content_html` field) were not showing on the webpage, even when image URLs were present in the database.
+
+## Root Cause
+The image auto-detection logic was not robust enough to handle all cases:
+1. Image URLs might be in broken `<img>` tags (without valid `src` attributes)
+2. Image URLs might be plain text in the content
+3. ImageKit URLs might not have file extensions
+4. The protection mechanism was too aggressive, protecting broken img tags
 
 ## Solution
-Implemented multiple improvements to ensure images always display when updated in the collection:
+Enhanced the `processContentForSEO` function in `lib/contentProcessor.ts` to:
 
-### 1. Reduced Cache Time
-- Changed revalidation from 5 minutes (300s) to 1 minute (60s)
-- Added `cache: 'no-store'` to always fetch fresh data from the API
-- This ensures updated images appear within 1 minute of being added to the collection
+1. **Improved img tag protection**: Only protect `<img>` tags that have valid `src` attributes with actual URLs (starting with `http` or `/`). Broken or empty img tags are not protected, allowing them to be processed.
 
-### 2. Improved Image Detection
-- Enhanced regex patterns to better detect image URLs in various formats
-- Improved handling of ImageKit CDN URLs with query parameters
-- Better detection of URLs on new lines or after whitespace
+2. **More aggressive URL detection**: 
+   - Process all image URLs (with file extensions) using a comprehensive regex pattern
+   - Process ImageKit URLs separately (they might not have file extensions)
+   - Use index-based replacement to avoid regex index issues
 
-### 3. Always Update Cache-Busting
-- Modified cache-busting logic to always update the version parameter
-- Removes old cache-busting params and adds fresh timestamp
-- Ensures browsers always fetch the latest image version
+3. **Better context checking**: Check surrounding context (100 characters before/after) to ensure URLs aren't already inside protected tags or links.
 
-### 4. Better URL Pattern Matching
-- Updated patterns to catch images in more contexts:
-  - URLs on their own line
-  - URLs after whitespace
-  - URLs in various HTML contexts
-- Improved protection of existing img tags while still processing plain URLs
+4. **Cache-busting**: All detected images get cache-busting parameters based on `updatedAt` timestamp to ensure fresh images are displayed when content is updated.
 
 ## Files Modified
-
-1. **lib/contentApi.ts**:
-   - Reduced `revalidate` from 300 to 60 seconds
-   - Added `cache: 'no-store'` to fetchPosts and fetchPostBySlug
-
-2. **app/blog/[slug]/page.tsx**:
-   - Reduced `revalidate` from 300 to 60 seconds
-
-3. **lib/contentProcessor.ts**:
-   - Improved image URL detection patterns
-   - Enhanced ImageKit URL detection
-   - Always update cache-busting parameters on existing images
-
-## How It Works Now
-
-1. **When you add/update images in the collection**:
-   - The system fetches fresh data (no cache)
-   - Images are detected and converted to `<img>` tags
-   - Cache-busting parameters are added based on post update time
-
-2. **Image Detection**:
-   - Plain URLs ending with image extensions → converted to img tags
-   - ImageKit URLs → converted to img tags
-   - Existing img tags → cache-busting updated
-
-3. **Cache Refresh**:
-   - Pages revalidate every 60 seconds
-   - Fresh data fetched on every request
-   - Images always show latest version
+- `lib/contentProcessor.ts`: Enhanced `processContentForSEO` function with improved image detection logic
 
 ## Testing
+Tested on:
+- `https://triposia.com/blog/baggage-rules-for-international-flights-from-usa`
+- `https://triposia.com/blog/best-time-to-book-flights-from-new-york`
 
-To verify images are showing:
-1. Add an image URL to your blog post content in the database
-2. Wait up to 60 seconds (or refresh the page)
-3. The image should automatically appear as a properly formatted `<img>` tag
+## Result
+Images are now automatically detected and converted to `<img>` tags when:
+- Plain image URLs are pasted into the content
+- ImageKit URLs are present (even without file extensions)
+- Broken `<img>` tags exist in the content
 
-## Notes
-
-- Images are automatically detected and converted
-- Cache-busting ensures browsers don't use stale images
-- Fresh data fetching ensures updates appear quickly
-- All image formats are supported (jpg, png, webp, gif, etc.)
+All images are displayed with proper styling, cache-busting, and lazy loading.

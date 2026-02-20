@@ -59,15 +59,24 @@ export function processContentForSEO(
   // We need to process this carefully to avoid converting URLs that are already in tags
   
   // First, protect existing img tags and links by temporarily replacing them
+  // BUT: We need to check if img tags have valid src attributes - if not, they might be broken and need fixing
   const protectedContent: Array<{ placeholder: string; original: string }> = [];
   let protectIndex = 0;
   
-  // Protect existing img tags
-  processed = processed.replace(/<img[^>]*>/gi, (match) => {
-    const placeholder = `__PROTECTED_IMG_${protectIndex}__`;
-    protectedContent.push({ placeholder, original: match });
-    protectIndex++;
-    return placeholder;
+  // Protect existing img tags (only if they have a valid src with a URL)
+  processed = processed.replace(/<img([^>]*)>/gi, (match, attributes) => {
+    // Check if img tag has a valid src attribute with an actual URL
+    const srcMatch = attributes.match(/src\s*=\s*["']([^"']+)["']/i);
+    const hasValidSrc = srcMatch && srcMatch[1] && (srcMatch[1].startsWith('http') || srcMatch[1].startsWith('/'));
+    if (hasValidSrc) {
+      const placeholder = `__PROTECTED_IMG_${protectIndex}__`;
+      protectedContent.push({ placeholder, original: match });
+      protectIndex++;
+      return placeholder;
+    }
+    // If no valid src, don't protect it - let it be processed as a plain URL
+    // This handles broken img tags or img tags with empty src
+    return match;
   });
   
   // Protect existing links (including image links)
@@ -80,36 +89,81 @@ export function processContentForSEO(
   
   // Now process plain image URLs (with file extensions)
   // Match URLs ending with image extensions that are NOT inside HTML tags
-  // Improved pattern to catch URLs on new lines, after text, or standalone
-  const imageUrlPattern = /(?:^|[\s>])(https?:\/\/[^\s<>"']+\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?[^\s<>"']*)?)(?:\s|$|<\/)/gim;
-  processed = processed.replace(imageUrlPattern, (match, imageUrl) => {
-    // Check if this URL is already inside a protected placeholder
-    if (match.includes('__PROTECTED_')) {
-      return match; // Skip if already protected
+  // More aggressive pattern to catch URLs in various contexts - process all matches
+  const imageUrlPattern = /(https?:\/\/[^\s<>"']+\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|ico)(\?[^\s<>"']*)?)/gi;
+  let lastIndex = 0;
+  let match;
+  const replacements: Array<{ start: number; end: number; replacement: string }> = [];
+  
+  // Find all matches and check context
+  while ((match = imageUrlPattern.exec(processed)) !== null) {
+    const imageUrl = match[0];
+    const matchIndex = match.index;
+    
+    if (matchIndex === undefined) continue;
+    
+    // Get context around the URL
+    const beforeUrl = processed.substring(Math.max(0, matchIndex - 100), matchIndex);
+    const afterUrl = processed.substring(matchIndex + imageUrl.length, Math.min(processed.length, matchIndex + imageUrl.length + 100));
+    
+    // Skip if already in img tag, link, or protected content
+    if (beforeUrl.includes('__PROTECTED_') || beforeUrl.includes('<img') || beforeUrl.includes('src=') || 
+        beforeUrl.includes('<a') || afterUrl.includes('</a>') || beforeUrl.includes('href=')) {
+      continue;
     }
     
     // Convert plain URL to img tag
     const altText = title || defaultAltText || 'Blog post image';
     const imageUrlWithCache = updatedAt ? addCacheBustingToImageUrl(imageUrl, updatedAt) : imageUrl;
-    // Preserve whitespace before if present
-    const prefix = match.startsWith(' ') || match.startsWith('>') ? match[0] : '';
-    return `${prefix}<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`;
+    replacements.push({
+      start: matchIndex,
+      end: matchIndex + imageUrl.length,
+      replacement: `<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`
+    });
+  }
+  
+  // Apply replacements in reverse order to maintain indices
+  replacements.reverse().forEach(({ start, end, replacement }) => {
+    processed = processed.substring(0, start) + replacement + processed.substring(end);
   });
 
   // Also handle ImageKit and other CDN URLs that might not have file extensions
   // Pattern for ImageKit URLs: https://ik.imagekit.io/...
-  // Match URLs on their own line or after whitespace
-  const imageKitPattern = /(?:^|\s)(https?:\/\/ik\.imagekit\.io\/[^\s<>"']+)(?:\s|$)/gim;
-  processed = processed.replace(imageKitPattern, (match, imageUrl) => {
-    // Skip if it looks like it's part of a query string or path (but allow ImageKit URLs with query params)
-    // ImageKit URLs often have query params, so we allow them
+  // More aggressive pattern to catch all ImageKit URLs
+  const imageKitPattern = /(https?:\/\/ik\.imagekit\.io\/[^\s<>"']+)/gi;
+  const imageKitReplacements: Array<{ start: number; end: number; replacement: string }> = [];
+  lastIndex = 0;
+  
+  // Find all ImageKit matches and check context
+  while ((match = imageKitPattern.exec(processed)) !== null) {
+    const imageUrl = match[0];
+    const matchIndex = match.index;
     
+    if (matchIndex === undefined) continue;
+    
+    // Get context around the URL
+    const beforeUrl = processed.substring(Math.max(0, matchIndex - 100), matchIndex);
+    const afterUrl = processed.substring(matchIndex + imageUrl.length, Math.min(processed.length, matchIndex + imageUrl.length + 100));
+    
+    // Skip if already in img tag, link, or protected content
+    if (beforeUrl.includes('__PROTECTED_') || beforeUrl.includes('<img') || beforeUrl.includes('src=') || 
+        beforeUrl.includes('<a') || afterUrl.includes('</a>') || beforeUrl.includes('href=')) {
+      continue;
+    }
+    
+    // ImageKit URLs often have query params, so we allow them
     const altText = title || defaultAltText || 'Blog post image';
     const imageUrlWithCache = updatedAt ? addCacheBustingToImageUrl(imageUrl, updatedAt) : imageUrl;
-    // Replace the match with the img tag, preserving surrounding whitespace
-    const beforeMatch = match.startsWith(' ') ? ' ' : '';
-    const afterMatch = match.endsWith(' ') ? ' ' : '';
-    return `${beforeMatch}<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />${afterMatch}`;
+    imageKitReplacements.push({
+      start: matchIndex,
+      end: matchIndex + imageUrl.length,
+      replacement: `<img src="${imageUrlWithCache}" alt="${altText}" loading="lazy" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; display: block;" />`
+    });
+  }
+  
+  // Apply ImageKit replacements in reverse order
+  imageKitReplacements.reverse().forEach(({ start, end, replacement }) => {
+    processed = processed.substring(0, start) + replacement + processed.substring(end);
   });
   
   // Restore protected content
