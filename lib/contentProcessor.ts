@@ -173,38 +173,47 @@ export function processContentForSEO(
 
   // 0.5. Add cache-busting to existing image URLs if updatedAt is provided
   // This ensures images are refreshed when post is updated
+  // Also ensure all img tags have proper attributes
   if (updatedAt) {
     processed = processed.replace(
-      /<img([^>]*?src\s*=\s*["'])([^"']+)(["'][^>]*?)>/gi,
-      (match, before, src, after) => {
-        // Always update cache-busting parameter to force refresh
-        // Remove old cache-busting params if present
-        const cleanSrc = src.replace(/[?&](v|updated_at|t)=[^&]*/g, '');
-        const separator = cleanSrc.includes('?') ? '&' : '?';
-        const timestampValue = new Date(updatedAt).getTime();
-        const updatedSrc = `${cleanSrc}${separator}v=${timestampValue}`;
-        return `<img${before}${updatedSrc}${after}>`;
+      /<img([^>]*?)>/gi,
+      (match, attributes) => {
+        // Extract src attribute
+        const srcMatch = attributes.match(/src\s*=\s*["']([^"']+)["']/i);
+        if (srcMatch && srcMatch[1]) {
+          const src = srcMatch[1];
+          // Always update cache-busting parameter to force refresh
+          // Remove old cache-busting params if present
+          const cleanSrc = src.replace(/[?&](v|updated_at|t|timestamp)=[^&]*/g, '');
+          const separator = cleanSrc.includes('?') ? '&' : '?';
+          const timestampValue = new Date(updatedAt).getTime();
+          const updatedSrc = `${cleanSrc}${separator}v=${timestampValue}`;
+          // Replace the src in the attributes
+          const updatedAttributes = attributes.replace(/src\s*=\s*["'][^"']+["']/i, `src="${updatedSrc}"`);
+          return `<img${updatedAttributes}>`;
+        }
+        // If no valid src, return as-is (will be handled by other processing)
+        return match;
       }
     );
   }
 
-  // 1. Ensure images have alt text
+  // 1. Ensure images have alt text (replace empty alt attributes)
   processed = processed.replace(
-    /<img([^>]*?)(?:\s+alt\s*=\s*["'][^"']*["'])?([^>]*?)>/gi,
-    (match, before, after) => {
-      // Check if alt attribute already exists
-      if (/alt\s*=/i.test(match)) {
-        return match; // Keep as is if alt exists
+    /<img([^>]*?)>/gi,
+    (match, attributes) => {
+      // Check if alt attribute exists and has a non-empty value
+      const altMatch = attributes.match(/alt\s*=\s*["']([^"']*)["']/i);
+      if (altMatch && altMatch[1] && altMatch[1].trim()) {
+        return match; // Keep as is if alt exists and has content
       }
 
       // Add alt text based on title or default
       const altText = title || defaultAltText || 'Blog post image';
+      // Remove existing empty alt attribute if present
+      const cleanedAttributes = attributes.replace(/alt\s*=\s*["'][^"']*["']/i, '');
       // Insert alt attribute before the closing >
-      const insertPosition = match.lastIndexOf('>');
-      const beforeClose = match.substring(0, insertPosition);
-      const afterClose = match.substring(insertPosition);
-      
-      return `${beforeClose} alt="${altText}"${afterClose}`;
+      return `<img${cleanedAttributes} alt="${altText}">`;
     }
   );
 

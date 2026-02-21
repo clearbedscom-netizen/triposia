@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { Container, Typography, Box, Grid, Paper, Card, CardContent } from '@mui/material';
 import { getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getAirline, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getDestinationData, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getApoisByAirport } from '@/lib/queries';
 import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateFlightListingSchema, generatePriceCalendarSchema, generateFlightScheduleSchema, generateFAQPageSchema, generateAirportDeparturesListingSchema, generateAirportDeparturesScheduleSchema, generateAirportArrivalsListingSchema, generateAirportArrivalsScheduleSchema, generateAirportFlightsListSchema, generateAirlineScheduleSchema, parseRouteSlug, generateRouteListSchema, generateAirportSchema } from '@/lib/seo';
@@ -44,7 +45,17 @@ import { getAirlinesForRoute, formatAirportAnchor, formatAirlineAnchor, getRelat
 import { getEnhancedRelatedAirports, getAirlinePagesForAirport, getTopRoutePages, getCountryHubLink } from '@/lib/enhancedLinking';
 import RelatedPages from '@/components/ui/RelatedPages';
 import RelatedLinksSection from '@/components/ui/RelatedLinksSection';
-import RouteDataVisualizationLazy from '@/components/flights/RouteDataVisualizationLazy';
+
+// Lazy load client components
+const RouteDataVisualizationLazy = dynamic(() => import('@/components/flights/RouteDataVisualizationLazy'), {
+  ssr: false,
+  loading: () => <Box sx={{ p: 3, textAlign: 'center' }}>Loading visualizations...</Box>,
+});
+
+const FilterableFlightsSectionLazy = dynamic(() => import('@/components/flights/FilterableFlightsSectionLazy'), {
+  ssr: false,
+  loading: () => <Box sx={{ p: 3, textAlign: 'center', minHeight: 200 }}>Loading flights...</Box>,
+});
 import EnhancedAirportMap from '@/components/maps/EnhancedAirportMap';
 import AirportSummarySection from '@/components/flights/AirportSummarySection';
 import RoutesByAirlineGroup from '@/components/flights/RoutesByAirlineGroup';
@@ -838,16 +849,6 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* 6. GROUP ROUTES BY AIRLINE */}
-        {airlineGroups.length > 0 && (
-          <Box id="routes-by-airline-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
-            <RoutesByAirlineGroup
-              airlineGroups={airlineGroups}
-              originIata={iata}
-            />
-          </Box>
-        )}
-
         {/* 7. TOP ROUTES DASHBOARD - Visual Analytics */}
         {routesWithWeekly.length > 0 && (
           <Box id="analytics-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
@@ -864,38 +865,31 @@ export default async function FlightRoutePage({ params }: PageProps) {
           </Box>
         )}
 
-        {/* 8. DESTINATIONS BY REGION */}
-        {regionGroups.length > 0 && (
-          <Box id="routes-by-region-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
-            <RoutesByRegionGroup
-              regionGroups={regionGroups}
-              originIata={iata}
-              originCountry={airport?.country}
-            />
-          </Box>
-        )}
-
-        {/* 5. SORTABLE ROUTE TABLE - Comprehensive Table View */}
-        {routesWithWeekly.length > 0 && (
-          <Box id="routes-table-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
-            <SortableRouteTable
+        {/* FILTERABLE ROUTES SECTION - Routes by Airline, Region, and Sortable Table with Filters */}
+        {routesWithWeekly.length > 0 && (async () => {
+          // Create airline-route mapping for filtering
+          const routeAirlinesMap = new Map<string, string[]>();
+          routesWithWeekly.forEach(route => {
+            const routeFlights = departures.filter(f => f.destination_iata === route.iata);
+            const airlines = Array.from(new Set(routeFlights.map(f => f.airline_iata).filter(Boolean)));
+            routeAirlinesMap.set(route.iata, airlines);
+          });
+          
+          // Lazy load FilterableRoutesSection (client component)
+          const FilterableRoutesSectionLazy = (await import('@/components/flights/FilterableRoutesSectionLazy')).default;
+          
+          return (
+            <FilterableRoutesSectionLazy
               routes={routesWithWeekly}
-              originIata={iata}
+              airlineGroups={airlineGroups}
+              regionGroups={regionGroups}
               airlines={airlineList}
+              originIata={iata}
               originCountry={airport?.country}
-              routeAirlinesMap={(() => {
-                // Create airline-route mapping for filtering
-                const map = new Map<string, string[]>();
-                routesWithWeekly.forEach(route => {
-                  const routeFlights = departures.filter(f => f.destination_iata === route.iata);
-                  const airlines = Array.from(new Set(routeFlights.map(f => f.airline_iata).filter(Boolean)));
-                  map.set(route.iata, airlines);
-                });
-                return map;
-              })()}
+              routeAirlinesMap={routeAirlinesMap}
             />
-          </Box>
-        )}
+          );
+        })()}
 
         {/* 6. GROUP ROUTES BY AIRLINE */}
 
@@ -1472,10 +1466,48 @@ export default async function FlightRoutePage({ params }: PageProps) {
 
       {/* 7. ALL other content below the fold */}
       
-      {/* Flight Schedule */}
+      {/* Visual Analytics Block - Route Data Visualization */}
+      {flights.length > 0 && (
+        <Box id="analytics-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+          <RouteDataVisualizationLazy
+            routes={[{
+              iata: destination,
+              display: destinationDisplay,
+              flights_per_day: route.flights_per_day || flights.length.toString(),
+              flights_per_week: typeof flightsPerWeek === 'number' ? flightsPerWeek : 0,
+            }]}
+            airlines={operatingAirlines.map(a => ({
+              code: a.code,
+              name: a.name,
+              routeCount: 1,
+            }))}
+            originDisplay={originDisplay}
+          />
+        </Box>
+      )}
+
+      {/* Filterable Flights Section with Filters */}
+      {flights.length > 0 && (
+        <Box id="filterable-flights-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
+            Flight Schedule & Filters
+          </Typography>
+          <FilterableFlightsSectionLazy
+            flights={flights}
+            airlines={operatingAirlines}
+            origin={origin}
+            destination={destination}
+            originDisplay={originDisplay}
+            destinationDisplay={destinationDisplay}
+            showVisualizations={false} // Already shown above
+          />
+        </Box>
+      )}
+
+      {/* Flight Schedule - Calendar View */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h2" gutterBottom sx={{ fontSize: '1.5rem', mb: 2, textAlign: 'left' }}>
-          Flight Schedule
+          Flight Schedule Calendar
         </Typography>
         {flights.length > 0 ? (
           <FlightCalendarWrapper 

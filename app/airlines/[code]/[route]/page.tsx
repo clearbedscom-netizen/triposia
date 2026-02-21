@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { Container, Typography, Box, Grid, Paper, Divider, Link as MuiLink, Chip } from '@mui/material';
 import { getAirline, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getTerminalInfoForRoute, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
 import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, generateAirlineLocalBusinessSchema, parseRouteSlug, generateRouteListSchema, generateAirportSchema, generateAirlineSchema } from '@/lib/seo';
@@ -62,7 +63,10 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import StarIcon from '@mui/icons-material/Star';
 import AirlineAirportHeroSection from '@/components/airlines/AirlineAirportHeroSection';
-import AirlineRouteIntelligence from '@/components/airlines/AirlineRouteIntelligence';
+
+// Import server-rendered Route Intelligence Dashboard for SEO
+import AirlineRouteIntelligenceServer from '@/components/airlines/AirlineRouteIntelligenceServer';
+
 import AirlineSortableRouteTable from '@/components/airlines/AirlineSortableRouteTable';
 import AirlineRouteMap from '@/components/airlines/AirlineRouteMap';
 import AirlineExpandableRouteCard from '@/components/airlines/AirlineExpandableRouteCard';
@@ -835,8 +839,8 @@ export default async function AirlineRoutePage({ params }: PageProps) {
           </Paper>
         </Box>
 
-        {/* Route Intelligence Dashboard */}
-        <AirlineRouteIntelligence
+        {/* Route Intelligence Dashboard - Server-rendered for SEO */}
+        <AirlineRouteIntelligenceServer
           airlineName={airline.name}
           airportCode={iata}
           topRoutes={top5Routes}
@@ -1997,6 +2001,51 @@ export default async function AirlineRoutePage({ params }: PageProps) {
     `Frequently Asked Questions about ${airline.name} flights from ${originDisplay} to ${destinationDisplay}`
   );
 
+  // Calculate distance for Route Intelligence Dashboard and Visualizations
+  const { calculateDistance } = await import('@/lib/distance');
+  let distance_km: number | undefined;
+  if (distance) {
+    const distMatch = String(distance).match(/(\d+(?:\.\d+)?)/);
+    if (distMatch) distance_km = parseFloat(distMatch[1]);
+  }
+  if (!distance_km && originAirport?.lat && originAirport?.lng && destinationAirport?.lat && destinationAirport?.lng) {
+    distance_km = calculateDistance(originAirport.lat, originAirport.lng, destinationAirport.lat, destinationAirport.lng);
+  }
+
+  // Determine reliability based on frequency
+  const daily = flights.length;
+  let reliability: 'Very Stable' | 'Moderate' | 'Seasonal' | 'Limited' = 'Limited';
+  if (daily >= 5) reliability = 'Very Stable';
+  else if (daily >= 2) reliability = 'Moderate';
+  else if (daily >= 1) reliability = 'Seasonal';
+
+  // Get aircraft type from flights
+  const aircraftTypes = Array.from(new Set(flights.map(f => f.aircraft).filter(Boolean)));
+  const aircraft = aircraftTypes.length > 0 ? aircraftTypes[0] : undefined;
+
+  // Create route data for intelligence dashboard
+  const routeData = {
+    destination: destination,
+    display: destinationDisplay,
+    weeklyFlights: typeof flightsPerWeek === 'number' ? flightsPerWeek : (flights.length * 7),
+    duration: averageDuration !== 'Data not available' ? averageDuration : undefined,
+    distance: distance_km,
+    reliability: reliability,
+    aircraft: aircraft,
+  };
+
+  // Lazy load components (AirlineRouteIntelligenceLazy is already declared at top level)
+
+  const RouteDataVisualizationLazy = dynamic(() => import('@/components/flights/RouteDataVisualizationLazy'), {
+    ssr: false,
+    loading: () => <Box sx={{ p: 3, textAlign: 'center' }}>Loading visualizations...</Box>,
+  });
+
+  const FilterableFlightsSectionLazy = dynamic(() => import('@/components/flights/FilterableFlightsSectionLazy'), {
+    ssr: false,
+    loading: () => <Box sx={{ p: 3, textAlign: 'center', minHeight: 200 }}>Loading flights...</Box>,
+  });
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <PageViewTracker
@@ -2207,6 +2256,63 @@ export default async function AirlineRoutePage({ params }: PageProps) {
               )}
             </Grid>
           </Paper>
+        </Box>
+      )}
+
+      {/* Route Intelligence Dashboard - Server-rendered for SEO */}
+      {flights.length > 0 && (
+        <Box id="route-intelligence-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+          <AirlineRouteIntelligenceServer
+            airlineName={airline.name}
+            airportCode={origin}
+            topRoutes={[routeData]}
+            totalRoutes={1}
+            totalWeeklyFlights={typeof flightsPerWeek === 'number' ? flightsPerWeek : (flights.length * 7)}
+            averageFrequency={typeof flightsPerWeek === 'number' ? flightsPerWeek : (flights.length * 7)}
+            routeGrowth="stable"
+          />
+        </Box>
+      )}
+
+      {/* Visual Analytics Block */}
+      {flights.length > 0 && (
+        <Box id="analytics-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+          <RouteDataVisualizationLazy
+            routes={[{
+              iata: destination,
+              display: destinationDisplay,
+              flights_per_day: route.flights_per_day || flights.length.toString(),
+              flights_per_week: typeof flightsPerWeek === 'number' ? flightsPerWeek : (flights.length * 7),
+            }]}
+            airlines={[{
+              code: airline.iata || airline.code || code,
+              name: airline.name,
+              routeCount: 1,
+            }]}
+            originDisplay={originDisplay}
+          />
+        </Box>
+      )}
+
+      {/* Filterable Flights Section with Filters */}
+      {flights.length > 0 && (
+        <Box id="filterable-flights-section" sx={{ mb: 4, scrollMarginTop: '100px' }}>
+          <Typography variant="h2" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, mb: 2, textAlign: 'left' }}>
+            Flight Schedule & Filters
+          </Typography>
+          <FilterableFlightsSectionLazy
+            flights={flights}
+            airlines={[{
+              code: airline.iata || airline.code || code,
+              name: airline.name,
+              iata: airline.iata || airline.code || code,
+            }]}
+            origin={origin}
+            destination={destination}
+            originDisplay={originDisplay}
+            destinationDisplay={destinationDisplay}
+            showVisualizations={false} // Already shown above
+          />
         </Box>
       )}
 
