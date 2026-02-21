@@ -6,6 +6,10 @@ export const COMPANY_INFO = {
   name: 'Triposia',
   website: 'https://triposia.com',
   email: 'info@triposia.com',
+  phone: {
+    display: process.env.NEXT_PUBLIC_PHONE_DISPLAY || '+1-(877) 684-5230',
+    tel: process.env.NEXT_PUBLIC_PHONE_TEL || '+18776845230',
+  },
   address: {
     street: '1401 21st Street Suite R',
     city: 'Sacramento',

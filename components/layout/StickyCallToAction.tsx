@@ -3,6 +3,7 @@
 import { Box, Typography, Paper } from '@mui/material';
 import { SupportAgent, Phone } from '@mui/icons-material';
 import Link from 'next/link';
+import { COMPANY_INFO } from '@/lib/company';
 
 export default function StickyCallToAction() {
   return (
@@ -20,7 +21,7 @@ export default function StickyCallToAction() {
     >
       <Paper
         component={Link}
-        href="tel:+18883519011"
+        href={`tel:${COMPANY_INFO.phone.tel}`}
         elevation={2}
         sx={{
           display: 'flex',
@@ -80,7 +81,7 @@ export default function StickyCallToAction() {
               lineHeight: 1.2,
             }}
           >
-            +1-(888) 351-9011
+            {COMPANY_INFO.phone.display}
           </Typography>
           <Typography
             variant="caption"
