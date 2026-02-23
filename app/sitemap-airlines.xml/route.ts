@@ -29,11 +29,20 @@ export async function GET() {
     const role = getEntityRole('airline');
     const priority = getSitemapPriority(role);
 
+    // Main airline page
     urls.push(`  <url>
     <loc>${baseUrl}/airlines/${code}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${priority}</priority>
+  </url>`);
+
+    // Airline info/customer service page
+    urls.push(`  <url>
+    <loc>${baseUrl}/airlines/${code}/info</loc>
+    <lastmod>${lastMod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>`);
   }
 

@@ -100,6 +100,203 @@ export async function generateRouteFAQs(
 }
 
 /**
+ * Generate FAQs for airline-country pages
+ */
+/**
+ * Generate FAQs for airline info/customer service pages
+ */
+export function generateAirlineInfoFAQs(
+  airline: Airline,
+  routeCount: number
+): Array<{ question: string; answer: string }> {
+  const faqs: Array<{ question: string; answer: string }> = [];
+  const airlineName = airline.name;
+
+  // 1. Contact information - optimized for keywords
+  if (airline.phone) {
+    const airlineNameLower = airlineName.toLowerCase();
+    faqs.push({
+      question: `What is ${airlineName}'s customer service phone number?`,
+      answer: `${airlineName} customer service phone number is ${airline.phone}. The ${airlineNameLower} customer service number can be used for reservations, flight information, and customer support. Call ${airlineName} customer service at ${airline.phone} for assistance.`,
+    });
+    
+    // Additional keyword-rich FAQ
+    faqs.push({
+      question: `What is ${airlineName}'s customer service number?`,
+      answer: `${airlineName} customer service number is ${airline.phone}. You can reach ${airlineNameLower} customer service by calling ${airline.phone}. The ${airlineName} phone number is available for all customer service inquiries.`,
+    });
+  }
+
+  // 2. Website
+  if (airline.website) {
+    const airlineNameLower = airlineName.toLowerCase();
+    faqs.push({
+      question: `What is ${airlineName}'s official website?`,
+      answer: `${airlineName}'s official website is ${airline.website}. Visit the website to book flights, manage reservations, check flight status, and access ${airlineNameLower} customer service.`,
+    });
+  }
+  
+  // Additional customer service keyword FAQ
+  if (airline.phone) {
+    const airlineNameLower = airlineName.toLowerCase();
+    faqs.push({
+      question: `How do I contact ${airlineName} customer service?`,
+      answer: `To contact ${airlineName} customer service, call ${airline.phone}. The ${airlineNameLower} customer service phone number is available 24/7 for reservations, flight changes, baggage inquiries, and general customer support.`,
+    });
+  }
+
+  // 3. Baggage policy
+  if (airline.baggage || airline.baggage_allowance_domestic || airline.baggage_allowance_international) {
+    const baggageInfo = airline.baggage || 
+      (airline.baggage_allowance_domestic && airline.baggage_allowance_international
+        ? `Domestic: ${airline.baggage_allowance_domestic}. International: ${airline.baggage_allowance_international}.`
+        : airline.baggage_allowance_domestic || airline.baggage_allowance_international);
+    
+    faqs.push({
+      question: `What is ${airlineName}'s baggage policy?`,
+      answer: `${airlineName}'s baggage policy: ${baggageInfo}. Please check the airline's website or contact customer service for the most current baggage allowance and fees.`,
+    });
+  }
+
+  // 4. Check-in information
+  if (airline.check_in) {
+    faqs.push({
+      question: `What are ${airlineName}'s check-in procedures?`,
+      answer: `${airlineName} check-in information: ${airline.check_in}. For specific check-in times and requirements, visit the airline's website or contact customer service.`,
+    });
+  }
+
+  // 5. Cancellation policy
+  if (airline.cancellation_flexibility) {
+    faqs.push({
+      question: `What is ${airlineName}'s cancellation and refund policy?`,
+      answer: `${airlineName}'s cancellation and flexibility policy: ${airline.cancellation_flexibility}. For detailed information about refunds and change fees, contact customer service or visit the airline's website.`,
+    });
+  }
+
+  // 6. Fleet information
+  if (airline.fleet_size || airline.total_aircrafts) {
+    const fleetSize = airline.fleet_size || airline.total_aircrafts;
+    faqs.push({
+      question: `How many aircraft does ${airlineName} operate?`,
+      answer: `${airlineName} operates a fleet of ${fleetSize} aircraft${fleetSize !== 1 ? 's' : ''}.`,
+    });
+  }
+
+  // 7. Routes
+  if (routeCount > 0) {
+    faqs.push({
+      question: `How many routes does ${airlineName} operate?`,
+      answer: `${airlineName} operates ${routeCount} route${routeCount !== 1 ? 's' : ''} connecting destinations worldwide.`,
+    });
+  }
+
+  // 8. Hubs
+  if (airline.hubs && airline.hubs.length > 0) {
+    const hubsList = airline.hubs.slice(0, 5).join(', ');
+    const moreText = airline.hubs.length > 5 ? ` and ${airline.hubs.length - 5} more` : '';
+    faqs.push({
+      question: `What are ${airlineName}'s main hub airports?`,
+      answer: `${airlineName}'s main hub airports include ${hubsList}${moreText}.`,
+    });
+  }
+
+  // 9. Ratings
+  if (airline.rating_skytrax_stars) {
+    faqs.push({
+      question: `What is ${airlineName}'s Skytrax rating?`,
+      answer: `${airlineName} has a ${airline.rating_skytrax_stars}-star Skytrax rating${airline.rating_skytrax_reviews ? ` based on ${airline.rating_skytrax_reviews} reviews` : ''}.`,
+    });
+  }
+
+  // 10. Address
+  if (airline.address || airline.city || airline.country) {
+    const addressParts = [airline.address, airline.city, airline.state, airline.country].filter(Boolean);
+    faqs.push({
+      question: `Where is ${airlineName} headquartered?`,
+      answer: `${airlineName}'s headquarters is located at ${addressParts.join(', ')}${airline.zipcode ? ` ${airline.zipcode}` : ''}.`,
+    });
+  }
+
+  // Return top 8-10 FAQs
+  return faqs.slice(0, 10);
+}
+
+export function generateAirlineCountryFAQs(
+  airlineName: string,
+  countryName: string,
+  totalRoutes: number,
+  weeklyFlights: number,
+  totalDestinations?: number,
+  canadianAirports?: string[],
+  phoneNumber?: string,
+  airportInfo?: Array<{ airport: string; airport_iata: string; terminal?: string }>
+): Array<{ question: string; answer: string }> {
+  const faqs: Array<{ question: string; answer: string }> = [];
+  const keyword = `${airlineName} ${countryName}`;
+
+  // 1. Does Delta Airlines fly to Canada? (SERP question - keyword-rich)
+  if (totalRoutes > 0) {
+    faqs.push({
+      question: `Does ${airlineName} fly to ${countryName}?`,
+      answer: `Yes, ${airlineName} operates ${totalRoutes} route${totalRoutes !== 1 ? 's' : ''} connecting ${countryName} with destinations worldwide. ${keyword} provides extensive connectivity with approximately ${weeklyFlights.toLocaleString()} flights per week.`,
+    });
+  }
+
+  // 2. Which Canadian airports does Delta Airlines serve? (SERP question)
+  if (canadianAirports && canadianAirports.length > 0) {
+    const airportList = canadianAirports.slice(0, 5).join(', ');
+    const moreText = canadianAirports.length > 5 ? ` and ${canadianAirports.length - 5} more` : '';
+    faqs.push({
+      question: `Which ${countryName} airports does ${airlineName} serve?`,
+      answer: `${airlineName} serves ${canadianAirports.length} airport${canadianAirports.length !== 1 ? 's' : ''} in ${countryName}, including ${airportList}${moreText}. ${keyword} connects major Canadian cities with destinations across North America and beyond.`,
+    });
+  }
+
+  // 3. What are Delta Airlines' main routes from Canada? (SERP question)
+  if (totalRoutes > 0) {
+    const dailyFlights = Math.round(weeklyFlights / 7);
+    faqs.push({
+      question: `What are ${airlineName}'s main routes from ${countryName}?`,
+      answer: `${airlineName} operates ${totalRoutes} route${totalRoutes !== 1 ? 's' : ''} from ${countryName}, with approximately ${dailyFlights.toLocaleString()} flights per day. ${keyword} connects Canadian cities to major hubs including Atlanta, Detroit, Minneapolis, Salt Lake City, and Seattle, providing access to hundreds of destinations worldwide.`,
+    });
+  }
+
+  // 4. How many Delta Airlines flights operate to Canada weekly? (SERP question - keyword-rich)
+  if (weeklyFlights > 0) {
+    const monthlyFlights = weeklyFlights * 4;
+    faqs.push({
+      question: `How many ${airlineName} flights operate to ${countryName} weekly?`,
+      answer: `${keyword} operates approximately ${weeklyFlights.toLocaleString()} flights per week to ${countryName}, totaling over ${monthlyFlights.toLocaleString()} flights per month. This includes both departures from and arrivals to Canadian airports.`,
+    });
+  }
+
+  // 5. What is Delta Airlines' phone number in Canada? (SERP question)
+  if (phoneNumber) {
+    faqs.push({
+      question: `What is ${airlineName}'s phone number in ${countryName}?`,
+      answer: `For reservations and customer service in ${countryName}, ${airlineName} can be reached at ${phoneNumber}. ${keyword} customer service is available to assist with bookings, flight information, and travel support.`,
+    });
+  } else if (totalRoutes > 0) {
+    faqs.push({
+      question: `How can I contact ${airlineName} in ${countryName}?`,
+      answer: `You can contact ${airlineName} for ${countryName} flights through their website or customer service. ${keyword} provides customer support for bookings, flight schedules, and travel assistance.`,
+    });
+  }
+
+  // 6. Does Delta Airlines fly international routes from Canada? (SERP question)
+  if (totalRoutes > 0) {
+    faqs.push({
+      question: `Does ${airlineName} fly international routes from ${countryName}?`,
+      answer: `Yes, ${airlineName} operates international routes from ${countryName} to destinations in the United States and beyond. ${keyword} connects Canadian travelers to major international hubs, providing access to a global network of destinations through code-share partnerships and alliance connections.`,
+    });
+  }
+
+  // Return top 6 FAQs (SERP-optimized)
+  return faqs.slice(0, 6);
+}
+
+/**
  * Generate FAQs for airport pages
  */
 export async function generateAirportFAQs(

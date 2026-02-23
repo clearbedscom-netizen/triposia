@@ -66,5 +66,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
+  // Add airline-countries sitemap
+  sitemaps.push({
+    url: `${baseUrl}/sitemap-airline-countries.xml`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  });
+
   return sitemaps;
 }

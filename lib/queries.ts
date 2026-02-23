@@ -874,6 +874,74 @@ export async function getFlightsToAirport(iata: string): Promise<Flight[]> {
   return result;
 }
 
+/**
+ * Convert airline name to URL-friendly slug
+ */
+function airlineNameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Get airline by code or name slug (e.g., "dl" or "delta-air-lines")
+ * Returns the airline code if found by name slug
+ */
+export async function getAirlineBySlug(slug: string): Promise<{ airline: Airline | null; code: string | null }> {
+  // First try as code (most common case)
+  const airlineByCode = await getAirline(slug);
+  if (airlineByCode) {
+    const code = airlineByCode.iata || airlineByCode.code || slug.toUpperCase();
+    return { airline: airlineByCode, code };
+  }
+
+  // If not found by code, try as name slug
+  const db = await getDatabase();
+  const collection = db.collection<any>('airlines');
+  
+  // Normalize the slug for comparison
+  const normalizedSlug = slug.toLowerCase().replace(/-/g, ' ');
+  
+  // Try to find by name (exact match or contains)
+  const airline = await collection.findOne({
+    $or: [
+      { name: { $regex: new RegExp(`^${normalizedSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+      { name: { $regex: new RegExp(normalizedSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
+      { short_name: { $regex: new RegExp(`^${normalizedSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+    ],
+  });
+  
+  if (!airline) {
+    // Try fuzzy match by comparing slugs
+    const allAirlines = await collection.find({}).toArray();
+    const matchingAirline = allAirlines.find(a => {
+      if (!a.name) return false;
+      const airlineSlug = airlineNameToSlug(a.name);
+      return airlineSlug === slug.toLowerCase() || 
+             airlineSlug.includes(slug.toLowerCase()) ||
+             slug.toLowerCase().includes(airlineSlug);
+    });
+    
+    if (matchingAirline) {
+      const code = matchingAirline.iata || matchingAirline.code;
+      if (code) {
+        return getAirlineBySlug(code); // Recursively get with code
+      }
+    }
+    
+    return { airline: null, code: null };
+  }
+
+  // Found by name, get the code and return full airline data
+  const code = airline.iata || airline.code;
+  if (code) {
+    return getAirlineBySlug(code); // Recursively get with code to ensure consistency
+  }
+
+  return { airline: null, code: null };
+}
+
 // Airline Queries
 export async function getAirline(code: string): Promise<Airline | null> {
   const cacheKey = CacheKeys.airline(code);

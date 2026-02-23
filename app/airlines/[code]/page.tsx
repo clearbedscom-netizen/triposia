@@ -252,6 +252,15 @@ export default async function AirlinePage({ params }: PageProps) {
               {airline.is_cargo && <Chip label="Cargo" size="small" color="secondary" />}
               {airline.is_scheduled && <Chip label="Scheduled" size="small" />}
               {airline.domestic && <Chip label="Domestic" size="small" />}
+              <Chip
+                component={Link}
+                href={`/airlines/${code.toLowerCase()}/info`}
+                label="Customer Service"
+                size="small"
+                color="primary"
+                clickable
+                sx={{ fontWeight: 500 }}
+              />
             </Box>
           </Box>
         </Box>

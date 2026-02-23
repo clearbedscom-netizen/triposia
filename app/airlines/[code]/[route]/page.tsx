@@ -73,17 +73,18 @@ import AirlineExpandableRouteCard from '@/components/airlines/AirlineExpandableR
 import AirlineInternalLinkingHub from '@/components/airlines/AirlineInternalLinkingHub';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     code: string;
     route: string;
-  };
+  }>;
 }
 
 export const revalidate = 86400; // ISR: 24 hours
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const code = params?.code?.toUpperCase() || '';
-  const routeSlug = params?.route || '';
+  const { code: codeParam, route: routeParam } = await params;
+  const code = codeParam?.toUpperCase() || '';
+  const routeSlug = routeParam || '';
   
   // Skip if this looks like a "from-" route
   if (routeSlug.startsWith('from-')) {
@@ -321,8 +322,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function AirlineRoutePage({ params }: PageProps) {
-  const code = params?.code?.toUpperCase() || '';
-  const routeSlug = params?.route || '';
+  const { code: codeParam, route: routeParam } = await params;
+  const code = codeParam?.toUpperCase() || '';
+  const routeSlug = routeParam || '';
   
   // Skip if this looks like a "from-" route - let from-[route] handle it
   if (routeSlug.startsWith('from-')) {
