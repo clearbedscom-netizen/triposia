@@ -358,6 +358,8 @@ export default function robots(): MetadataRoute.Robots {
       `${baseUrl}/sitemap-static.xml`,
       `${baseUrl}/sitemap-airports.xml`,
       `${baseUrl}/sitemap-airlines.xml`,
+      `${baseUrl}/sitemap-airlines-info.xml`,
+      `${baseUrl}/sitemap-airline-countries.xml`,
       `${baseUrl}/sitemap-blogs.xml`,
       // Flights sitemap parts (1-5)
       `${baseUrl}/sitemap-flights-1.xml`,
