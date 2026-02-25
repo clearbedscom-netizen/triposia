@@ -446,8 +446,8 @@ export function generateImageSchema(images: Array<{ src: string; alt?: string; w
                           img.src.match(/\.svg$/i) ? 'image/svg+xml' : 'image/jpeg';
     
     return {
-      '@type': 'ImageObject' as const,
-      url: img.src,
+    '@type': 'ImageObject' as const,
+    url: img.src,
       contentUrl: img.src, // Required for ImageObject
       ...(img.width && { width: img.width }),
       ...(img.height && { height: img.height }),

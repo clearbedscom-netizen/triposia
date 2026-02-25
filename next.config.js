@@ -80,8 +80,8 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['@mui/material', '@mui/icons-material'],
   },
-  // Increase static page generation timeout to prevent build failures
-  staticPageGenerationTimeout: 180,
+  // Increase static page generation timeout for data-heavy pages (e.g. /api/airports)
+  staticPageGenerationTimeout: 600,
   webpack: (config, { isServer }) => {
     // Optimize bundle size
     if (!isServer) {

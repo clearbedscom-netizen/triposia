@@ -111,6 +111,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" />
         <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
         <link rel="dns-prefetch" href="https://googleads.g.doubleclick.net" />
+        {/* MCP/WebMCP Discovery */}
+        <link rel="mcp-manifest" href="/.well-known/mcp.json" />
+        <meta name="mcp-server" content={`${siteUrl}/api/mcp`} />
+        <meta name="mcp-protocol" content="2024-11-05" />
         {/* Preload critical fonts */}
         <link
           rel="preload"
