@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { Container, Typography, Box, Grid, Paper, List, ListItem, ListItemText, Avatar, Chip, Divider, Link as MuiLink } from '@mui/material';
-import { getAirline, getAirlineRoutes, getAirportSummary } from '@/lib/queries';
+import { getAirline, getAirlineBySlug, getAirlineRoutes, getAirportSummary } from '@/lib/queries';
 import { generateMetadata as genMeta, generateBreadcrumbList, generateAirlineSchema } from '@/lib/seo';
 import { getRelatedAirports, formatRouteAnchor, formatAirportAnchor, getRelatedAirlinesByCountry } from '@/lib/linking';
 import RelatedPages from '@/components/ui/RelatedPages';
@@ -41,15 +41,23 @@ import { optimizeTitle, optimizeDescription } from '@/lib/metadata-utils';
 import { getEditorialPage, shouldUseOldModel } from '@/lib/editorialPages';
 
 interface PageProps {
-  params: {
-    code: string;
-  };
+  params: Promise<{ code: string }>;
+}
+
+function isAirlineNameSlug(codeParam: string): boolean {
+  const s = (codeParam || '').trim();
+  return s.length > 2 || s.includes('-');
 }
 
 export const revalidate = 86400; // ISR: 24 hours
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const code = params.code.toUpperCase();
+  const { code: codeParam } = await params;
+  let code = (codeParam || '').toUpperCase();
+  if (isAirlineNameSlug(codeParam)) {
+    const { code: resolvedCode } = await getAirlineBySlug(codeParam);
+    if (resolvedCode) code = resolvedCode.toUpperCase();
+  }
   const airline = await getAirline(code);
   
   // Check for editorial page meta data
@@ -80,7 +88,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function AirlinePage({ params }: PageProps) {
-  const code = params.code.toUpperCase();
+  const { code: codeParam } = await params;
+
+  // If URL uses airline full name (e.g. /airlines/southwest-airlines), redirect to IATA code
+  if (isAirlineNameSlug(codeParam)) {
+    const { redirect } = await import('next/navigation');
+    const { code: resolvedCode } = await getAirlineBySlug(codeParam);
+    if (resolvedCode) {
+      redirect(`/airlines/${resolvedCode.toLowerCase()}`);
+    }
+  }
+
+  const code = codeParam.toUpperCase();
   const airline = await getAirline(code);
   const routes = await getAirlineRoutes(code);
 

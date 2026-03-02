@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import { Container, Typography, Box, Grid, Paper, Chip, Divider, Link as MuiLink } from '@mui/material';
 import { 
   getAirline, 
+  getAirlineBySlug,
   getAirportsByCountry, 
   getAllAirports,
   getAirportSummary,
@@ -79,9 +80,18 @@ const COUNTRY_MAPPING: Record<string, string> = {
   'india': 'India',
 };
 
+function isAirlineNameSlug(codeParam: string): boolean {
+  const s = (codeParam || '').trim();
+  return s.length > 2 || s.includes('-');
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { code, country } = await params;
-  const airlineCode = code.toUpperCase();
+  const { code: codeParam, country } = await params;
+  let airlineCode = codeParam.toUpperCase();
+  if (isAirlineNameSlug(codeParam)) {
+    const { code: resolvedCode } = await getAirlineBySlug(codeParam);
+    if (resolvedCode) airlineCode = resolvedCode.toUpperCase();
+  }
   const countryName = COUNTRY_MAPPING[country.toLowerCase()] || country.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   
   const airline = await getAirline(airlineCode);
@@ -99,15 +109,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return genMeta({
     title,
     description,
-    canonical: `/airlines/${code.toLowerCase()}/country/${country}`,
+    canonical: `/airlines/${airlineCode.toLowerCase()}/country/${country.toLowerCase()}`,
     keywords: [`${airline.name} ${countryName}`, `${airline.name} flights`, `${countryName} flights`, 'flight schedules', 'airline routes'],
   });
 }
 
 export default async function AirlineCountryPage({ params }: PageProps) {
-  const { code, country } = await params;
-  const airlineCode = code.toUpperCase();
+  const { code: codeParam, country } = await params;
   const countrySlug = country.toLowerCase();
+
+  // If URL uses airline full name (e.g. /airlines/mauritania-airlines/country/...), redirect to IATA code
+  if (isAirlineNameSlug(codeParam)) {
+    const { redirect } = await import('next/navigation');
+    const { code: resolvedCode } = await getAirlineBySlug(codeParam);
+    if (resolvedCode) {
+      redirect(`/airlines/${resolvedCode.toLowerCase()}/country/${countrySlug}`);
+    }
+  }
+
+  const airlineCode = codeParam.toUpperCase();
+  const code = airlineCode.toLowerCase(); // canonical code for URLs
   const countryName = COUNTRY_MAPPING[countrySlug] || country.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   // Get airline

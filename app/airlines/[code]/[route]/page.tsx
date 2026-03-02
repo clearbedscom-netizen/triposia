@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import dynamic from 'next/dynamic';
 import { Container, Typography, Box, Grid, Paper, Divider, Link as MuiLink, Chip } from '@mui/material';
-import { getAirline, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getTerminalInfoForRoute, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
+import { getAirline, getAirlineBySlug, getRoute, getDeepRoute, getFlightsByRoute, getRouteWithMetadata, getPoisByAirport, getAirportSummary, getAllAirlines, getFlightsFromAirport, getFlightsToAirport, getRoutesFromAirport, getRoutesToAirport, getTerminalPhones, getTerminalInfoForRoute, getAirlineFlightsFromAirport, getAirlineFlightsToAirport, getWeatherByAirport, getBookingInsightsByAirport, getPriceTrendsByAirport, getAirlineSeasonalInsightsByAirport, getApoisByAirport } from '@/lib/queries';
 import { generateMetadata as genMeta, generateBreadcrumbList, generateFlightRouteSchema, generateAirlineFlightListingSchema, generateAirlineRouteScheduleSchema, generateFAQPageSchema, generateAirlineLocalBusinessSchema, parseRouteSlug, generateRouteListSchema, generateAirportSchema, generateAirlineSchema } from '@/lib/seo';
 import { 
   extractRouteMetadata, 
@@ -81,10 +81,46 @@ interface PageProps {
 
 export const revalidate = 86400; // ISR: 24 hours
 
+// Route slugs we do not have pages for (cancellation, change fee, etc.) — return 404
+const BLOCKED_ROUTE_SLUGS = new Set([
+  'cancellation-policy',
+  'change-fee',
+  'change-fees',
+  'change-flight',
+  'change-flights',
+  'refund-policy',
+  'baggage-policy',
+  'booking-policy',
+  'manage-booking',
+  'flight-change',
+  'cancel-flight',
+  'cancel-flights',
+]);
+
+function isAirlineNameSlug(codeParam: string): boolean {
+  const s = (codeParam || '').trim();
+  return s.length > 2 || s.includes('-');
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { code: codeParam, route: routeParam } = await params;
-  const code = codeParam?.toUpperCase() || '';
-  const routeSlug = routeParam || '';
+  let code = codeParam?.toUpperCase() || '';
+  const routeSlug = (routeParam || '').toLowerCase();
+
+  // We don't have policy/help pages for airlines — noindex and page will 404
+  if (BLOCKED_ROUTE_SLUGS.has(routeSlug)) {
+    return genMeta({
+      title: 'Page Not Found',
+      description: 'This page does not exist.',
+      noindex: true,
+    });
+  }
+
+  // If URL uses airline full name (e.g. southwest-airlines), resolve to IATA code for meta
+  if (isAirlineNameSlug(codeParam)) {
+    const { code: resolvedCode } = await getAirlineBySlug(codeParam);
+    if (resolvedCode) code = resolvedCode.toUpperCase();
+  }
   
   // Skip if this looks like a "from-" route
   if (routeSlug.startsWith('from-')) {
@@ -105,7 +141,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const routeParts = parseRouteSlug(routeSlug);
   if (!routeParts) {
     // Check if it's a single IATA code (airport page)
-    if (/^[A-Z]{3}$/i.test(routeSlug) && !routeSlug.includes('-')) {
+    if (/^[a-z]{3}$/i.test(routeSlug) && !routeSlug.includes('-')) {
       const iata = routeSlug.toUpperCase();
       const airline = await getAirline(code);
       const airport = await getAirportSummary(iata);
@@ -310,21 +346,38 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
-  // Canonical should point to the canonical route page
-  const canonicalRoute = routeParts ? `${routeParts.origin.toLowerCase()}-${routeParts.destination.toLowerCase()}` : routeSlug;
+  // Self-referencing canonical so this airline route page is indexed (not treated as alternate to /flights/...)
+  const canonicalRoute = routeParts ? `${routeParts.origin.toLowerCase()}-${routeParts.destination.toLowerCase()}` : routeSlug.toLowerCase();
+  const canonicalPath = `/airlines/${code.toLowerCase()}/${canonicalRoute}`;
 
   return genMeta({
     title,
     description,
-    canonical: `/flights/${canonicalRoute}`,
+    canonical: canonicalPath,
     keywords: focusKeywords ? focusKeywords.split(',').map(k => k.trim()).filter(Boolean) : undefined,
   });
 }
 
 export default async function AirlineRoutePage({ params }: PageProps) {
   const { code: codeParam, route: routeParam } = await params;
+  const routeSlug = (routeParam || '').toLowerCase();
+
+  // We don't have cancellation/change-fee etc. pages — 404
+  if (BLOCKED_ROUTE_SLUGS.has(routeSlug)) {
+    const { notFound } = await import('next/navigation');
+    notFound();
+  }
+
+  // If URL uses airline full name (e.g. /airlines/southwest-airlines/stl-phx), redirect to IATA code
+  if (isAirlineNameSlug(codeParam)) {
+    const { redirect } = await import('next/navigation');
+    const { code: resolvedCode } = await getAirlineBySlug(codeParam);
+    if (resolvedCode) {
+      redirect(`/airlines/${resolvedCode.toLowerCase()}/${routeSlug}`);
+    }
+  }
+
   const code = codeParam?.toUpperCase() || '';
-  const routeSlug = routeParam || '';
   
   // Skip if this looks like a "from-" route - let from-[route] handle it
   if (routeSlug.startsWith('from-')) {
