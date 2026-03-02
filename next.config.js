@@ -79,6 +79,15 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['@mui/material', '@mui/icons-material'],
+    // Reduce serverless bundle size so deploy output stays within limits
+    outputFileTracingExcludes: {
+      '*': [
+        'docs/**',
+        'scripts/**',
+        '*.md',
+        'node_modules/@types/**',
+      ],
+    },
   },
   // Increase static page generation timeout for data-heavy pages (e.g. /api/airports)
   staticPageGenerationTimeout: 600,
