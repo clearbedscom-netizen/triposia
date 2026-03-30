@@ -1,9 +1,9 @@
 /**
  * Content API client for fetching posts, categories, and authors
- * Base URL: https://admintriposia.vercel.app/api/content
+ * Base URL: https://blogs-eight-red.vercel.app/api/content
  */
 
-const CONTENT_API_BASE = 'https://admintriposia.vercel.app/api/content';
+const CONTENT_API_BASE = 'https://blogs-eight-red.vercel.app/api/content';
 const DEFAULT_DOMAIN_ID = 2; // Default domain ID, can be overridden via env
 
 interface Post {

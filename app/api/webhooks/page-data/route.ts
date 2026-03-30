@@ -9,7 +9,7 @@ import { getTerminalPhones } from '@/lib/queries';
 
 /**
  * Webhook endpoint to fetch full rendered page data
- * Used by admin site (admintriposia.vercel.app) to fetch page data
+ * Used by blog admin site (blogs-eight-red.vercel.app) to fetch page data
  * 
  * GET /api/webhooks/page-data?type=airline&slug=ai
  * GET /api/webhooks/page-data?type=airline&slug=dl/atl (airline-airport page)
@@ -24,7 +24,7 @@ export async function OPTIONS(request: NextRequest) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
   const allowedOrigins = [
-    'https://admintriposia.vercel.app',
+    'https://blogs-eight-red.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
   ];
@@ -42,7 +42,7 @@ export async function OPTIONS(request: NextRequest) {
     headers.set('Access-Control-Allow-Origin', origin);
     headers.set('Access-Control-Allow-Credentials', 'true');
   } else if (isAdminDomain) {
-    headers.set('Access-Control-Allow-Origin', 'https://admintriposia.vercel.app');
+    headers.set('Access-Control-Allow-Origin', 'https://blogs-eight-red.vercel.app');
     headers.set('Access-Control-Allow-Credentials', 'true');
   }
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
   const allowedOrigins = [
-    'https://admintriposia.vercel.app',
+    'https://blogs-eight-red.vercel.app',
     'http://localhost:3000', // for local development
     'http://localhost:3001', // for local development (alternative port)
   ];
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     headers.set('Access-Control-Allow-Credentials', 'true');
   } else if (isAdminDomain) {
     // Fallback if no origin header but referer matches
-    headers.set('Access-Control-Allow-Origin', 'https://admintriposia.vercel.app');
+    headers.set('Access-Control-Allow-Origin', 'https://blogs-eight-red.vercel.app');
     headers.set('Access-Control-Allow-Credentials', 'true');
   } else {
     // For webhook endpoints, be more permissive with CORS

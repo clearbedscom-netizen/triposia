@@ -232,9 +232,9 @@ function isAdminDomain(request: NextRequest): boolean {
   
   // Check if request is from admin domain
   return (
-    referer.includes('admintriposia.vercel.app') ||
-    origin.includes('admintriposia.vercel.app') ||
-    host.includes('admintriposia.vercel.app')
+    referer.includes('blogs-eight-red.vercel.app') ||
+    origin.includes('blogs-eight-red.vercel.app') ||
+    host.includes('blogs-eight-red.vercel.app')
   );
 }
 
